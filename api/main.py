@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # from core.security import hash_password, verify_password
 
 from routers.auth_router import router as auth_router
+from routers.operation_router import router as operation_router
 
 app = FastAPI()
 
@@ -30,7 +31,7 @@ app.add_middleware(
 
 
 app.include_router(auth_router)
-
+app.include_router(operation_router)
 
 # Authenticate the user
 
