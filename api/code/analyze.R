@@ -1,4 +1,12 @@
+args <- commandArgs(trailingOnly = TRUE)
+id <- args[1]
+
+
+
 # Ensure the number of samples match
+
+
+setwd(here(id))
 
 count_data <- readRDS("rds/count_data.rds")
 sample_info <- readRDS("rds/sample_info.rds")
