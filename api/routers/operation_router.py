@@ -112,21 +112,42 @@ async def analyze(user_info: dict = Depends(verify_token)):
 @router.post('/remove_outliers')
 async def remove_outliers(data: OutlierSchema, user_info: dict = Depends(verify_token)):
 
-    print(data.genes)
+    try:
 
-    # change the data in the RDS and 
+        genes = data.genes
+        genes_str = 'c(' + ', '.join([f'"{gene}"' for gene in genes]) + ')'
 
-    ot = robjects.r(
-    f"""
-        user_data <- readRDS("code/{user_info['user_id']}/rds/count_data.rds")
+        print(genes_str)
 
-        head(user_data)
+        # change the data in the RDS and 
 
-    """)
+        ot = robjects.r(
+        f"""
+            user_data <- readRDS("code/{user_info['user_id']}/rds/count_data.rds")
+            user_sample_info <- readRDS("code/{user_info['user_id']}/rds/sample_info.rds")
+
+            user_data <- user_data[, !colnames(user_data) %in% {genes_str}]
+            user_sample_info <- user_sample_info[!rownames(user_sample_info) %in% {genes_str}, , drop = FALSE]
+
+            print(head(user_data))
+
+            saveRDS(user_data, "code/{str(user_info['user_id'])}/rds/count_data.rds")
+            saveRDS(user_sample_info, "code/{str(user_info['user_id'])}/rds/sample_info.rds")
+        """)
 
 
-    print(ot)
-    return {"message": "Outliers removed successfully!"}
+        print(ot)
+
+        return {"message": "Outliers removed successfully!"}
+    
+    except Exception as e:
+        return {"message": "Error in removing outliers", "error": str(e)}
+    
+
+
+
+    
+    
 
 
 
