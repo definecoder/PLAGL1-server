@@ -7,19 +7,19 @@ from core.security import verify_token
 router = APIRouter(tags=["file server"])
 
 
-@router.get('/figures/{file_path}')
-async def get_file(file_path: str,  user_info: dict = Depends(verify_token)):
-    print(f"{file_path}")
+@router.get('/figures/{user_id}/{file_path}')
+async def get_file(user_id: str , file_path: str):
     try:     
-        return FileResponse(f"code/{str(user_info['user_id'])}/figures/{file_path}")
+        return FileResponse(f"code/{user_id}/figures/{file_path}")
     except Exception as e:
         return {"message": "Error in uploading file", "error": str(e)}
+
+    # return {"test"}
     
-@router.get('/files/{file_path}')
-async def get_file(file_path: str,  user_info: dict = Depends(verify_token)):
-    print(f"{file_path}")
+@router.get('/files/{user_id}/{file_path}')
+async def get_file(user_id: str ,file_path: str):
     try:     
-        return FileResponse(f"code/{str(user_info['user_id'])}/files/{file_path}")
+        return FileResponse(f"code/{user_id}/files/{file_path}")
     except Exception as e:
         return {"message": "Error in uploading file", "error": str(e)}
     

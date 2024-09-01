@@ -5,6 +5,8 @@ from core.security import verify_token
 import rpy2.robjects as robjects
 import os
 import subprocess
+from models.schema import OutlierSchema
+from core.consts import BASE_URL
 
 
 router = APIRouter(prefix='/operations', tags=['operation'])
@@ -65,9 +67,69 @@ async def analyze(user_info: dict = Depends(verify_token)):
     except Exception as e:
         return {"message": "Error in analyzing file", "error": str(e)}
     
-    return {"message": "Analysis completed successfully!"}
+    return {"message": "Analysis completed successfully!", "results" : [
+        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/Boxplot_denorm.png", "title": "Denormalized Boxplot"},
+        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/Boxplot_norm.png", "title": "Normalized Boxplot"},
+        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/htree_denorm.png", "title": "Denormalized Hierarchical Tree"},
+        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/htree_norm.png", "title": "Normalized Hierarchical Tree"},
+        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/PCA_denorm.png", "title": "Denormalized PCA"},
+        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/PCA_norm.png", "title": "Normalized PCA"},
+        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/tSNE_denorm.png", "title": "Denormalized tSNE"},
+        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/tSNE_norm.png", "title": "Normalized tSNE"},
+        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/UMAP_denorm.png", "title": "Denormalized UMAP"},
+        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/UMAP_norm.png", "title": "Normalized UMAP"},
+
+        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/Boxplot_denorm.pdf", "title": "Denormalized Boxplot"},
+        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/Boxplot_norm.pdf", "title": "Normalized Boxplot"},
+        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/htree_denorm.pdf", "title": "Denormalized Hierarchical Tree"},
+        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/htree_norm.pdf", "title": "Normalized Hierarchical Tree"},
+        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/PCA_denorm.pdf", "title": "Denormalized PCA"},
+        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/PCA_norm.pdf", "title": "Normalized PCA"},
+        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/tSNE_denorm.pdf", "title": "Denormalized tSNE"},
+        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/tSNE_norm.pdf", "title": "Normalized tSNE"},
+        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/UMAP_denorm.pdf", "title": "Denormalized UMAP"},
+        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/UMAP_norm.pdf", "title": "Normalized UMAP"},
+
+        {
+            "file": f"{BASE_URL}/files/{user_info['user_id']}/Normalized_Count_Data.csv",
+            "title": "Normalized Count Data"
+        },
+        {
+            "file": f"{BASE_URL}/files/{user_info['user_id']}/count_data.csv",
+            "title": "Count Data"
+        },
+        {
+            "file": f"{BASE_URL}/files/{user_info['user_id']}/meta_data.csv",
+            "title": "Meta Data"
+        }
+
+
+    
+    ]}
        
     
+
+@router.post('/remove_outliers')
+async def remove_outliers(data: OutlierSchema, user_info: dict = Depends(verify_token)):
+
+    print(data.genes)
+
+    # change the data in the RDS and 
+
+    ot = robjects.r(
+    f"""
+        user_data <- readRDS("code/{user_info['user_id']}/rds/count_data.rds")
+
+        head(user_data)
+
+    """)
+
+
+    print(ot)
+    return {"message": "Outliers removed successfully!"}
+
+
+
 @router.get("/test")
 async def test():
     # os.makedirs(FILE_DIR, exist_ok=True)
@@ -77,9 +139,6 @@ async def test():
     stdout, stderr = process.communicate()
     print(stdout.decode())
     # run_r_script("test.R")
-
-
-
 
 
 

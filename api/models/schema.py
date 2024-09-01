@@ -11,3 +11,7 @@ class UserLogin(BaseModel):
     email: EmailStr
     password: str
     
+
+class OutlierSchema(BaseModel):
+    genes: list[str]
+    
