@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from routers.auth_router import router as auth_router
 from routers.operation_router import router as operation_router
+from routers.file_router import router as file_router
 
 app = FastAPI()
 
@@ -32,6 +33,7 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(operation_router)
+app.include_router(file_router)
 
 # Authenticate the user
 

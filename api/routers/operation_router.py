@@ -25,8 +25,6 @@ async def init(count_data: UploadFile = File(...), meta_data: UploadFile = File(
         os.makedirs(os.path.join(R_CODE_DIRECTORY, str(user_info['user_id']), "figures"), exist_ok=True)
 
         FILE_DIR = os.path.join(R_CODE_DIRECTORY, f"{user_info['user_id']}", "files")
-
-        
         robjects.r['setwd'](R_CODE_DIRECTORY + f"/{user_info['user_id']}")
         file1_path = os.path.join( FILE_DIR, f"count_data.csv")
         with open(file1_path, "wb") as f:
@@ -61,11 +59,6 @@ async def init(count_data: UploadFile = File(...), meta_data: UploadFile = File(
 async def analyze(user_info: dict = Depends(verify_token)):
     try:
 
-        
-
-        # robjects.r("source('analyze.R')")
-
-        # print(f"user id: {user_info['user_id']}")
         robjects.r['setwd'](R_CODE_DIRECTORY)
 
         run_r_script("analyze.R", [str(user_info['user_id'])])
@@ -97,7 +90,7 @@ def run_r_script(script_name, args=None):
         cmd.extend(args)
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = process.communicate()
-    print(stdout)
+    print(stdout.decode())
     if process.returncode != 0:
         raise Exception(f"R script failed: {stderr.decode()}")
 
