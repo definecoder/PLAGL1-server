@@ -114,29 +114,19 @@ async def remove_outliers(data: OutlierSchema, user_info: dict = Depends(verify_
 
     try:
 
+        file_path = f"{user_info['user_id']}/rds/genes.rds"
+
+        print(robjects.r('getwd()'))
+
         genes = data.genes
-        genes_str = 'c(' + ', '.join([f'"{gene}"' for gene in genes]) + ')'
+        r_genes_list = robjects.StrVector(genes)
+        r_saveRDS = robjects.r['saveRDS']
+        r_saveRDS(r_genes_list, file=file_path)
 
-        print(genes_str)
+        # robjects.r['setwd'](R_CODE_DIRECTORY)
+        # robjects.r['setwd'](R_CODE_DIRECTORY)
+        run_r_script("remove_outlier.R", [str(user_info['user_id'])])
 
-        # change the data in the RDS and 
-
-        ot = robjects.r(
-        f"""
-            user_data <- readRDS("code/{user_info['user_id']}/rds/count_data.rds")
-            user_sample_info <- readRDS("code/{user_info['user_id']}/rds/sample_info.rds")
-
-            user_data <- user_data[, !colnames(user_data) %in% {genes_str}]
-            user_sample_info <- user_sample_info[!rownames(user_sample_info) %in% {genes_str}, , drop = FALSE]
-
-            print(head(user_data))
-
-            saveRDS(user_data, "code/{str(user_info['user_id'])}/rds/count_data.rds")
-            saveRDS(user_sample_info, "code/{str(user_info['user_id'])}/rds/sample_info.rds")
-        """)
-
-
-        print(ot)
 
         return {"message": "Outliers removed successfully!"}
     
@@ -154,11 +144,19 @@ async def remove_outliers(data: OutlierSchema, user_info: dict = Depends(verify_
 @router.get("/test")
 async def test():
     # os.makedirs(FILE_DIR, exist_ok=True)
-    cmd = ["Rscript", os.path.join(R_CODE_DIRECTORY, "test.R")]
-    robjects.r['setwd'](R_CODE_DIRECTORY + "/13")
-    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    stdout, stderr = process.communicate()
-    print(stdout.decode())
+    robjects.r['setwd'](R_CODE_DIRECTORY + "/1")
+    ot = robjects.r(
+        f"""
+            md <- readRDS("rds/count_data.rds")
+            head(md)
+        """
+    )
+
+    robjects.r['setwd'](R_CODE_DIRECTORY)
+
+    print(ot)
+
+    return {"message": "Tested successfully!"}
     # run_r_script("test.R")
 
 
