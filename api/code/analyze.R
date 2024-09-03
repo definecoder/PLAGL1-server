@@ -568,3 +568,8 @@ dev.off()
 png("figures/htree_norm.png")
 plot(htree, labels = rownames(sample_info), main = "Hierarchical Clustering Dendrogram", col = label_colors)
 dev.off()
+
+
+
+saveRDS(condition, "rds/condition.rds")
+saveRDS(dds, "rds/dds.rds")
