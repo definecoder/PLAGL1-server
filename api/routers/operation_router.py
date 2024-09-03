@@ -67,45 +67,37 @@ async def analyze(user_info: dict = Depends(verify_token)):
     except Exception as e:
         return {"message": "Error in analyzing file", "error": str(e)}
     
-    return {"message": "Analysis completed successfully!", "results" : [
-        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/Boxplot_denorm.png", "title": "Denormalized Boxplot"},
-        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/Boxplot_norm.png", "title": "Normalized Boxplot"},
-        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/htree_denorm.png", "title": "Denormalized Hierarchical Tree"},
-        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/htree_norm.png", "title": "Normalized Hierarchical Tree"},
-        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/PCA_denorm.png", "title": "Denormalized PCA"},
-        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/PCA_norm.png", "title": "Normalized PCA"},
-        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/tSNE_denorm.png", "title": "Denormalized tSNE"},
-        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/tSNE_norm.png", "title": "Normalized tSNE"},
-        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/UMAP_denorm.png", "title": "Denormalized UMAP"},
-        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/UMAP_norm.png", "title": "Normalized UMAP"},
+    return {
+    "message": "Analysis completed successfully!",
+    "results": {
+        "boxplot_denorm_img": f"{BASE_URL}/figures/{user_info['user_id']}/Boxplot_denorm.png",
+        "boxplot_norm_img": f"{BASE_URL}/figures/{user_info['user_id']}/Boxplot_norm.png",
+        "htree_denorm_img": f"{BASE_URL}/figures/{user_info['user_id']}/htree_denorm.png",
+        "htree_norm_img": f"{BASE_URL}/figures/{user_info['user_id']}/htree_norm.png",
+        "pca_denorm_img": f"{BASE_URL}/figures/{user_info['user_id']}/PCA_denorm.png",
+        "pca_norm_img": f"{BASE_URL}/figures/{user_info['user_id']}/PCA_norm.png",
+        "tsne_denorm_img": f"{BASE_URL}/figures/{user_info['user_id']}/tSNE_denorm.png",
+        "tsne_norm_img": f"{BASE_URL}/figures/{user_info['user_id']}/tSNE_norm.png",
+        "umap_denorm_img": f"{BASE_URL}/figures/{user_info['user_id']}/UMAP_denorm.png",
+        "umap_norm_img": f"{BASE_URL}/figures/{user_info['user_id']}/UMAP_norm.png",
 
-        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/Boxplot_denorm.pdf", "title": "Denormalized Boxplot"},
-        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/Boxplot_norm.pdf", "title": "Normalized Boxplot"},
-        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/htree_denorm.pdf", "title": "Denormalized Hierarchical Tree"},
-        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/htree_norm.pdf", "title": "Normalized Hierarchical Tree"},
-        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/PCA_denorm.pdf", "title": "Denormalized PCA"},
-        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/PCA_norm.pdf", "title": "Normalized PCA"},
-        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/tSNE_denorm.pdf", "title": "Denormalized tSNE"},
-        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/tSNE_norm.pdf", "title": "Normalized tSNE"},
-        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/UMAP_denorm.pdf", "title": "Denormalized UMAP"},
-        {"file": f"{BASE_URL}/figures/{user_info['user_id']}/UMAP_norm.pdf", "title": "Normalized UMAP"},
+        "boxplot_denorm_pdf": f"{BASE_URL}/figures/{user_info['user_id']}/Boxplot_denorm.pdf",
+        "boxplot_norm_pdf": f"{BASE_URL}/figures/{user_info['user_id']}/Boxplot_norm.pdf",
+        "htree_denorm_pdf": f"{BASE_URL}/figures/{user_info['user_id']}/htree_denorm.pdf",
+        "htree_norm_pdf": f"{BASE_URL}/figures/{user_info['user_id']}/htree_norm.pdf",
+        "pca_denorm_pdf": f"{BASE_URL}/figures/{user_info['user_id']}/PCA_denorm.pdf",
+        "pca_norm_pdf": f"{BASE_URL}/figures/{user_info['user_id']}/PCA_norm.pdf",
+        "tsne_denorm_pdf": f"{BASE_URL}/figures/{user_info['user_id']}/tSNE_denorm.pdf",
+        "tsne_norm_pdf": f"{BASE_URL}/figures/{user_info['user_id']}/tSNE_norm.pdf",
+        "umap_denorm_pdf": f"{BASE_URL}/figures/{user_info['user_id']}/UMAP_denorm.pdf",
+        "umap_norm_pdf": f"{BASE_URL}/figures/{user_info['user_id']}/UMAP_norm.pdf",
 
-        {
-            "file": f"{BASE_URL}/files/{user_info['user_id']}/Normalized_Count_Data.csv",
-            "title": "Normalized Count Data"
-        },
-        {
-            "file": f"{BASE_URL}/files/{user_info['user_id']}/count_data.csv",
-            "title": "Count Data"
-        },
-        {
-            "file": f"{BASE_URL}/files/{user_info['user_id']}/meta_data.csv",
-            "title": "Meta Data"
-        }
+        "normalized_data_csv": f"{BASE_URL}/files/{user_info['user_id']}/Normalized_Count_Data.csv",
+        "count_data_csv": f"{BASE_URL}/files/{user_info['user_id']}/count_data.csv",
+        "meta_data_csv": f"{BASE_URL}/files/{user_info['user_id']}/meta_data.csv"
+    }
+}
 
-
-    
-    ]}
        
     
 
