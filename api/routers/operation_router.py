@@ -104,7 +104,8 @@ async def remove_outliers(data: OutlierSchema, user_info: dict = Depends(verify_
 
     try:
 
-        file_path = f"{user_info['user_id']}/rds/genes.rds"
+        file_path = f"code/{user_info['user_id']}/rds/genes.rds"
+        
 
         print(robjects.r('getwd()'))
 
@@ -115,10 +116,40 @@ async def remove_outliers(data: OutlierSchema, user_info: dict = Depends(verify_
 
         # robjects.r['setwd'](R_CODE_DIRECTORY)
         # robjects.r['setwd'](R_CODE_DIRECTORY)
+        print("ekhane ashenai")
         run_r_script("remove_outlier.R", [str(user_info['user_id'])])
+        run_r_script("analyze.R", [str(user_info['user_id'])]) 
 
 
-        return {"message": "Outliers removed successfully!"}
+        return {"message": "Outliers removed successfully!", 
+                "results": {
+                "boxplot_denorm_img": f"{BASE_URL}/figures/{user_info['user_id']}/Boxplot_denorm.png",
+                "boxplot_norm_img": f"{BASE_URL}/figures/{user_info['user_id']}/Boxplot_norm.png",
+                "htree_denorm_img": f"{BASE_URL}/figures/{user_info['user_id']}/htree_denorm.png",
+                "htree_norm_img": f"{BASE_URL}/figures/{user_info['user_id']}/htree_norm.png",
+                "pca_denorm_img": f"{BASE_URL}/figures/{user_info['user_id']}/PCA_denorm.png",
+                "pca_norm_img": f"{BASE_URL}/figures/{user_info['user_id']}/PCA_norm.png",
+                "tsne_denorm_img": f"{BASE_URL}/figures/{user_info['user_id']}/tSNE_denorm.png",
+                "tsne_norm_img": f"{BASE_URL}/figures/{user_info['user_id']}/tSNE_norm.png",
+                "umap_denorm_img": f"{BASE_URL}/figures/{user_info['user_id']}/UMAP_denorm.png",
+                "umap_norm_img": f"{BASE_URL}/figures/{user_info['user_id']}/UMAP_norm.png",
+
+                "boxplot_denorm_pdf": f"{BASE_URL}/figures/{user_info['user_id']}/Boxplot_denorm.pdf",
+                "boxplot_norm_pdf": f"{BASE_URL}/figures/{user_info['user_id']}/Boxplot_norm.pdf",
+                "htree_denorm_pdf": f"{BASE_URL}/figures/{user_info['user_id']}/htree_denorm.pdf",
+                "htree_norm_pdf": f"{BASE_URL}/figures/{user_info['user_id']}/htree_norm.pdf",
+                "pca_denorm_pdf": f"{BASE_URL}/figures/{user_info['user_id']}/PCA_denorm.pdf",
+                "pca_norm_pdf": f"{BASE_URL}/figures/{user_info['user_id']}/PCA_norm.pdf",
+                "tsne_denorm_pdf": f"{BASE_URL}/figures/{user_info['user_id']}/tSNE_denorm.pdf",
+                "tsne_norm_pdf": f"{BASE_URL}/figures/{user_info['user_id']}/tSNE_norm.pdf",
+                "umap_denorm_pdf": f"{BASE_URL}/figures/{user_info['user_id']}/UMAP_denorm.pdf",
+                "umap_norm_pdf": f"{BASE_URL}/figures/{user_info['user_id']}/UMAP_norm.pdf",
+
+                "normalized_data_csv": f"{BASE_URL}/files/{user_info['user_id']}/Normalized_Count_Data.csv",
+                "count_data_csv": f"{BASE_URL}/files/{user_info['user_id']}/count_data.csv",
+                "meta_data_csv": f"{BASE_URL}/files/{user_info['user_id']}/meta_data.csv"
+            }
+        }
     
     except Exception as e:
         return {"message": "Error in removing outliers", "error": str(e)}
