@@ -18,7 +18,6 @@ R_CODE_DIRECTORY = os.path.join(os.path.dirname(__file__), '../code')
 
 
 
-
 @router.post('/init')
 async def init(count_data: UploadFile = File(...), meta_data: UploadFile = File(...), user_info: dict = Depends(verify_token)):
 
@@ -59,7 +58,7 @@ async def init(count_data: UploadFile = File(...), meta_data: UploadFile = File(
 async def analyze(user_info: dict = Depends(verify_token)):
     try:
 
-        robjects.r['setwd'](R_CODE_DIRECTORY)
+        # robjects.r['setwd'](R_CODE_DIRECTORY)
 
         run_r_script("analyze.R", [str(user_info['user_id'])])
     except Exception as e:
@@ -104,7 +103,11 @@ async def remove_outliers(data: OutlierSchema, user_info: dict = Depends(verify_
 
     try:
 
-        file_path = f"code/{user_info['user_id']}/rds/genes.rds"
+        robjects.r['setwd'](R_CODE_DIRECTORY)
+
+        print(f"current python wd: {os.getcwd()}")
+
+        file_path = f"{user_info['user_id']}/rds/genes.rds"
         
 
         print(robjects.r('getwd()'))
