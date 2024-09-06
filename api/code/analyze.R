@@ -41,6 +41,147 @@ summary(gsg)
 # Remove outlier genes
 data <- count_data[gsg$goodGenes == TRUE, ]
 
+
+################################################## Data Manipulation | NODE 2.1 | NODE 2.2 | NODE 2.3 (Yet to be included) #######################
+
+# if there is any outlier samples exclude them from the both expression
+# data and metadata
+
+# samples_to_exclude <- c(1, 2, 5)
+#
+# count_data <- count_data[, -samples_to_exclude]
+# sample_info <- sample_info [-samples_to_exclude,]
+
+############################################################################################################
+
+########################################### DGE Analysis ###################################################
+
+########################################## Normalization | NODE 3 ###################################################
+
+# Expression Data
+# load the count data
+# count_data <- read.csv("count_data.csv", header=TRUE,row.names = 1)
+
+# Metadata
+# load the sample info
+# sample_info <- read.csv("meta_data.csv", header =TRUE,row.names = 1)
+
+# Ensure the number of samples match
+# if (ncol(count_data) != nrow(sample_info)) {
+#   stop("Number of samples in count_data and sample_info do not match!")
+# }
+
+# Convert Condition to factor
+# sample_info$Treatment <- factor(sample_info$Treatment)
+#
+# Quality Control: detect outlier genes
+# library(WGCNA)
+#
+# gsg <- goodSamplesGenes(t(count_data))
+# summary(gsg)
+#
+# Remove outlier genes
+# data <- count_data[gsg$goodGenes == TRUE,]
+
+# Convert non-integer values to integers in count data
+data <- round(data)
+head(data)
+
+# Create a new count data object
+new_data <- as.matrix(data)
+head(new_data)
+
+# Display dimensions for verification
+cat("Dimensions of data:", dim(data), "\n")
+cat("Dimensions of new_data:", dim(new_data), "\n")
+cat("Dimensions of sample_info:", dim(sample_info), "\n")
+
+# Start Normalization
+
+library(DESeq2)
+
+
+# Generate the DESeqDataSet object
+dds <- DESeqDataSetFromMatrix(countData = new_data, colData = sample_info, design = ~Treatment)
+
+# Set the factor levels for the Treatment column based on unique values
+condition <- unique(sample_info$Treatment)
+dds$Treatment <- factor(dds$Treatment, levels = condition)
+
+# Input all factor from metadata # TO do
+
+# Filter genes with low counts (less than 75% of sample number)
+threshold <- round(dim(sample_info)[1] * 0.70)
+keep <- rowSums(counts(dds)) >= threshold
+dds <- dds[keep, ]
+
+# Perform DESeq2 analysis
+dds <- DESeq(dds)
+
+# save the normalized counts
+normalize_counts <- counts(dds, normalized = TRUE)
+head(normalize_counts)
+dim(normalize_counts)
+write.csv(normalize_counts, "files/Normalized_Count_Data.csv")
+
+count_data_norm <- normalize_counts
+
+##################################################################################################################################################
+
+################################################## BoxPlot | NODE 4 ######################################################################################
+
+# Log2 transformation for count data
+count_matrix <- counts(dds) + 1 # Adding 1 to avoid log(0)
+log2_count_matrix <- log2(count_matrix)
+
+png("figures/Boxplot_denorm.png")
+boxplot(log2_count_matrix,
+    outline = FALSE, main = "Boxplot of Log2-transformed Count Data",
+    xlab = "Sample Name",
+    ylab = "Log2-transformed Counts"
+)
+dev.off()
+
+pdf("figures/Boxplot_denorm.pdf")
+boxplot(log2_count_matrix,
+    outline = FALSE, main = "Boxplot of Log2-transformed Count Data",
+    xlab = "Sample Name",
+    ylab = "Log2-transformed Counts"
+)
+dev.off()
+
+# Log2 transformation for normalized count data
+normalized_counts <- counts(dds, normalized = TRUE)
+
+
+log2_normalized_counts <- log2(normalized_counts + 1) # Adding 1 to avoid log(0)
+
+
+png("figures/Boxplot_norm.png")
+boxplot(log2_normalized_counts,
+    outline = FALSE,
+    main = "Boxplot of Log2-transformed Normalized Count Data",
+    xlab = "Sample Name",
+    ylab = "Log2-transformed Counts"
+)
+dev.off()
+
+
+pdf("figures/Boxplot_norm.pdf")
+boxplot(log2_normalized_counts,
+    outline = FALSE,
+    main = "Boxplot of Log2-transformed Normalized Count Data",
+    xlab = "Sample Name",
+    ylab = "Log2-transformed Counts"
+)
+dev.off()
+
+
+saveRDS(condition, "rds/condition.rds")
+saveRDS(dds, "rds/dds.rds")
+
+
+
 ################################################# PCA ########################################################
 
 # Load Expression Data
@@ -214,148 +355,6 @@ dev.off()
 png("figures/htree_denorm.png")
 plot(htree, labels = rownames(sample_info), main = "Hierarchical Clustering Dendrogram", col = label_colors)
 dev.off()
-
-##********************** #
-
-# Update this # add color
-
-##********************** ##
-
-################################################## Data Manipulation | NODE 2.1 | NODE 2.2 | NODE 2.3 (Yet to be included) #######################
-
-# if there is any outlier samples exclude them from the both expression
-# data and metadata
-
-# samples_to_exclude <- c(1, 2, 5)
-#
-# count_data <- count_data[, -samples_to_exclude]
-# sample_info <- sample_info [-samples_to_exclude,]
-
-############################################################################################################
-
-########################################### DGE Analysis ###################################################
-
-########################################## Normalization | NODE 3 ###################################################
-
-# Expression Data
-# load the count data
-# count_data <- read.csv("count_data.csv", header=TRUE,row.names = 1)
-
-# Metadata
-# load the sample info
-# sample_info <- read.csv("meta_data.csv", header =TRUE,row.names = 1)
-
-# Ensure the number of samples match
-# if (ncol(count_data) != nrow(sample_info)) {
-#   stop("Number of samples in count_data and sample_info do not match!")
-# }
-
-# Convert Condition to factor
-# sample_info$Treatment <- factor(sample_info$Treatment)
-#
-# Quality Control: detect outlier genes
-# library(WGCNA)
-#
-# gsg <- goodSamplesGenes(t(count_data))
-# summary(gsg)
-#
-# Remove outlier genes
-# data <- count_data[gsg$goodGenes == TRUE,]
-
-# Convert non-integer values to integers in count data
-data <- round(data)
-head(data)
-
-# Create a new count data object
-new_data <- as.matrix(data)
-head(new_data)
-
-# Display dimensions for verification
-cat("Dimensions of data:", dim(data), "\n")
-cat("Dimensions of new_data:", dim(new_data), "\n")
-cat("Dimensions of sample_info:", dim(sample_info), "\n")
-
-# Start Normalization
-
-library(DESeq2)
-
-
-# Generate the DESeqDataSet object
-dds <- DESeqDataSetFromMatrix(countData = new_data, colData = sample_info, design = ~Treatment)
-
-# Set the factor levels for the Treatment column based on unique values
-condition <- unique(sample_info$Treatment)
-dds$Treatment <- factor(dds$Treatment, levels = condition)
-
-# Input all factor from metadata # TO do
-
-# Filter genes with low counts (less than 75% of sample number)
-threshold <- round(dim(sample_info)[1] * 0.70)
-keep <- rowSums(counts(dds)) >= threshold
-dds <- dds[keep, ]
-
-# Perform DESeq2 analysis
-dds <- DESeq(dds)
-
-# save the normalized counts
-normalize_counts <- counts(dds, normalized = TRUE)
-head(normalize_counts)
-dim(normalize_counts)
-write.csv(normalize_counts, "files/Normalized_Count_Data.csv")
-
-count_data_norm <- normalize_counts
-
-##################################################################################################################################################
-
-################################################## BoxPlot | NODE 4 ######################################################################################
-
-# Log2 transformation for count data
-count_matrix <- counts(dds) + 1 # Adding 1 to avoid log(0)
-log2_count_matrix <- log2(count_matrix)
-
-png("figures/Boxplot_denorm.png")
-boxplot(log2_count_matrix,
-    outline = FALSE, main = "Boxplot of Log2-transformed Count Data",
-    xlab = "Sample Name",
-    ylab = "Log2-transformed Counts"
-)
-dev.off()
-
-pdf("figures/Boxplot_denorm.pdf")
-boxplot(log2_count_matrix,
-    outline = FALSE, main = "Boxplot of Log2-transformed Count Data",
-    xlab = "Sample Name",
-    ylab = "Log2-transformed Counts"
-)
-dev.off()
-
-# Log2 transformation for normalized count data
-normalized_counts <- counts(dds, normalized = TRUE)
-
-
-log2_normalized_counts <- log2(normalized_counts + 1) # Adding 1 to avoid log(0)
-
-
-png("figures/Boxplot_norm.png")
-boxplot(log2_normalized_counts,
-    outline = FALSE,
-    main = "Boxplot of Log2-transformed Normalized Count Data",
-    xlab = "Sample Name",
-    ylab = "Log2-transformed Counts"
-)
-dev.off()
-
-
-pdf("figures/Boxplot_norm.pdf")
-boxplot(log2_normalized_counts,
-    outline = FALSE,
-    main = "Boxplot of Log2-transformed Normalized Count Data",
-    xlab = "Sample Name",
-    ylab = "Log2-transformed Counts"
-)
-dev.off()
-
-
 
 # ---------------------------- Done till here ---------------------------- #
 # ---------------------------- Again do the operations ---------------------------- #
@@ -568,8 +567,3 @@ dev.off()
 png("figures/htree_norm.png")
 plot(htree, labels = rownames(sample_info), main = "Hierarchical Clustering Dendrogram", col = label_colors)
 dev.off()
-
-
-
-saveRDS(condition, "rds/condition.rds")
-saveRDS(dds, "rds/dds.rds")

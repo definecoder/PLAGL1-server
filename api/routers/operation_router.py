@@ -256,7 +256,8 @@ async def volcano_plot(coeff: str, user_info: dict = Depends(verify_token)):
                     "volcano_img": f"{BASE_URL}/figures/{user_info['user_id']}/volcano_plot.png",
                     "volcano_pdf": f"{BASE_URL}/figures/{user_info['user_id']}/volcano_plot.pdf",
                     "upregulated_genes" : f"{BASE_URL}/files/{user_info['user_id']}/Upregulated_padj.csv",
-                    "downregulated_genes" : f"{BASE_URL}/files/{user_info['user_id']}/Downregulated_padj.csv"
+                    "downregulated_genes" : f"{BASE_URL}/files/{user_info['user_id']}/Downregulated_padj.csv",
+                    "resLFC" : f"{BASE_URL}/files/{user_info['user_id']}/resLFC.csv"
                 }
                }
     
