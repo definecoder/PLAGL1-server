@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from routers.auth_router import router as auth_router
 from routers.operation_router import router as operation_router
 from routers.file_router import router as file_router
+from routers.micro_router import router as micro_router
 
 app = FastAPI()
 
@@ -31,9 +32,16 @@ app.add_middleware(
 )
 
 
+# add a / route
+
+@app.get("/")
+async def root():
+    return {"message": "PLAGL1 Server is running..."}
+
 app.include_router(auth_router)
 app.include_router(operation_router)
 app.include_router(file_router)
+app.include_router(micro_router)
 
 # Authenticate the user
 

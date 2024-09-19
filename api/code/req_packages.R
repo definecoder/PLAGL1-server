@@ -15,11 +15,14 @@ if (!requireNamespace("impute", quietly = TRUE)) {
 
 if (!requireNamespace("DESeq2", quietly = TRUE)) {
     BiocManager::install("DESeq2")
+    library(DESeq2)
 }
 
 if (!requireNamespace("Bioconductor", quietly = TRUE)) {
     install.packages("Bioconductor", repos = "http://cran.us.r-project.org")
 }
 
-library(WGCNA)
-library(DESeq2)
+if (!requireNamespace("WGCNA", quietly = TRUE)) {
+    BiocManager::install("WGCNA")
+    library(WGCNA)
+}
