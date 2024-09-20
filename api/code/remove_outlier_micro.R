@@ -15,7 +15,7 @@ count_data_normalized <- readRDS("rds/count_data_normalized.rds")
 outliers <- readRDS("rds/outliers.rds")
 
 
-print(outliers[1])
+# print(outliers[1])
 
 outlier_removal <- remove_outliers(count_data_subset, sample_info, outliers)
 
@@ -47,7 +47,15 @@ if (!is.null(outlier_removal)) {
     # Boxplot
     plot_boxplot(count_data_subset_clean, sample_info_clean, title = "Boxplot (Before Normalization)")
     plot_boxplot(count_data_subset_clean_normalized, sample_info_clean, title = "Boxplot (After Normalization)")
+
+
+    saveRDS(count_data_subset_clean, "rds/count_data_subset_clean.rds")
+    saveRDS(sample_info_clean, "rds/sample_info_clean.rds")
+    saveRDS(count_data_subset_clean_normalized, "rds/count_data_subset_clean_normalized.rds")
 } else {
+    saveRDS(count_data_subset, "rds/count_data_subset_clean.rds")
+    saveRDS(sample_info, "rds/sample_info_clean.rds")
+    saveRDS(count_data_normalized, "rds/count_data_subset_clean_normalized.rds")
     print("No outliers removed!")
 }
 

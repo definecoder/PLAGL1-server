@@ -164,100 +164,44 @@ async def remove_outliers(data: OutlierSchema, user_info: dict = Depends(verify_
 @router.get('/conditions')
 async def show_conditions(user_info: dict = Depends(verify_token)):
     try:
-
-        pandas2ri.activate()
-        robjects.r['setwd'](R_CODE_DIRECTORY + f"/{user_info['user_id']}")
+        robjects.r['setwd'](R_CODE_DIRECTORY + f"/{user_info['user_id']}/micro")
         readRDS = robjects.r['readRDS']
-        condition_vector = readRDS("rds/condition.rds")
-        # Extract factor levels
-        factor_levels = robjects.r['levels'](condition_vector)        
-        # Convert factor levels to a Python list
-        factor_levels_list = list(factor_levels)
-
-        # robjects.r['setwd'](R_CODE_DIRECTORY)
-        return {"options": factor_levels_list}
-
-        # run_r_script("conditions.R", [str(user_info['user_id'])])
+        sample_info_clean = readRDS("rds/sample_info_clean.rds")
+        group = sample_info_clean.rx(True, 1)
+        conditions = list(set(group))
+        return {"options": conditions}
     except Exception as e:
         return {"message": "Error in showing conditions", "error": str(e)}
 
 
 
-@router.get('/select_condition/{option}')
-async def select_condition(option: int, user_info: dict = Depends(verify_token)):
-    try:
 
-        robjects.r['setwd'](R_CODE_DIRECTORY + f"/{user_info['user_id']}")
-
-        robjects.r(
-        f"""
-            library(DESeq2)
-            condition <- readRDS("rds/condition.rds")
-            dds <- readRDS("rds/dds.rds")
-            condition <- as.data.frame(condition)
-            ref_level <- as.character(condition[{option},]) 
-            dds$Treatment <- relevel(dds$Treatment, ref = ref_level)
-            dds <- DESeq(dds)
-            coeff_names <- as.data.frame(resultsNames(dds))
-            saveRDS(coeff_names, "rds/coeff_names.rds")
-            saveRDS(ref_level, "rds/ref_level.rds")
-            saveRDS(dds, "rds/dds.rds")
-        """)
-
-        pandas2ri.activate()
-
-        readRDS = robjects.r['readRDS']
-        coeff_vector = readRDS("rds/coeff_names.rds")
-
-        coeff_vector = list(coeff_vector[0])
-
-        # print(coeff_vector[0])
-
-        coeffs = []
-
-        for coeff in coeff_vector:
-            coeffs.append(str(coeff))
-    
-        return {"options": coeffs}
-    
-    except Exception as e:
-        return {"message": "Error in selecting condition", "error": str(e)}
-    
-
-
-    
-
-
-# this will let the user to select the condition and it will show the coeffs 
-
-@router.get('/volcano/{coeff}')
-async def volcano_plot(coeff: str, user_info: dict = Depends(verify_token)):
+@router.get('/volcano/{reference}')
+async def volcano_plot(reference: str, user_info: dict = Depends(verify_token)):
 
     try:
 
-        robjects.r['setwd'](R_CODE_DIRECTORY + f"/{user_info['user_id']}")
+        robjects.r['setwd'](R_CODE_DIRECTORY + f"/{user_info['user_id']}/micro")
 
         robjects.r(
         f"""
-            coeff_names <- readRDS("rds/coeff_names.rds")
-            X <- coeff_names[{coeff},]
-            saveRDS(X, "rds/X.rds")
+            Reference <- "{reference}"
+            saveRDS(Reference, "rds/Reference.rds")
         """)
 
         print("etotuku no problem")
 
-        run_r_script("volcano.R", [str(user_info['user_id'])])
+        run_r_script("volcano_micro.R", [str(user_info['user_id'])])
+
+        # run_r_script("volcano.R", [str(user_info['user_id'])])
         # f"{BASE_URL}/figures/{user_info['user_id']}/htree_norm.pdf",
 
         return {"message": "Volcano plot generated successfully!",
                 "results": {
-                    "histogram_img": f"{BASE_URL}/figures/{user_info['user_id']}/histogram_pvalues.png",
-                    "histogram_pdf": f"{BASE_URL}/figures/{user_info['user_id']}/histogram_pvalues.pdf",
-                    "volcano_img": f"{BASE_URL}/figures/{user_info['user_id']}/volcano_plot.png",
-                    "volcano_pdf": f"{BASE_URL}/figures/{user_info['user_id']}/volcano_plot.pdf",
-                    "upregulated_genes" : f"{BASE_URL}/files/{user_info['user_id']}/Upregulated_padj.csv",
-                    "downregulated_genes" : f"{BASE_URL}/files/{user_info['user_id']}/Downregulated_padj.csv",
-                    "resLFC" : f"{BASE_URL}/files/{user_info['user_id']}/resLFC.csv"
+                    "volcano_img": f"{BASE_URL}/figures/micro/{user_info['user_id']}/volcano_plot.png",
+                    "upregulated_genes" : f"{BASE_URL}/files/micro/{user_info['user_id']}/upregulated_genes.csv",
+                    "downregulated_genes" : f"{BASE_URL}/files/micro/{user_info['user_id']}/downregulated_genes.csv",
+                    "resLFC" : f"{BASE_URL}/files/micro/{user_info['user_id']}/LFC.csv"
                 }
                }
     
@@ -265,31 +209,84 @@ async def volcano_plot(coeff: str, user_info: dict = Depends(verify_token)):
         return {"message": "Error in generating volcano plot", "error": str(e)}
 
 
-
-
-# user will pass the coeff and it will show the volcano plot
-
 @router.post('/highlighted_volcano')
 async def highlighted_volcano(data: OutlierSchema, user_info: dict = Depends(verify_token)):
 
     try:
-        robjects.r['setwd'](R_CODE_DIRECTORY + f"/{user_info['user_id']}")
+        robjects.r['setwd'](R_CODE_DIRECTORY + f"/{user_info['user_id']}/micro")
         r_genes_to_highlight = robjects.StrVector(data.genes)
         r_saveRDS = robjects.r['saveRDS']
-        r_saveRDS(r_genes_to_highlight, file="rds/genes_to_highlight.rds")
-        run_r_script("highlighted_volcano.R", [str(user_info['user_id'])])
+        r_saveRDS(r_genes_to_highlight, file="rds/highlight_genes.rds")
+
+
+        run_r_script("highlighted_volcano_mirco.R", [str(user_info['user_id'])])
 
         return {"message": "Highlighted Volcano plot generated successfully!",
                 "results":{
-                    "highlighted_volcano_img": f"{BASE_URL}/figures/{user_info['user_id']}/highlighted_volcano.png",
-                    "highlighted_volcano_pdf": f"{BASE_URL}/figures/{user_info['user_id']}/highlighted_volcano.pdf"
+                    "highlighted_volcano_img": f"{BASE_URL}/figures/micro/{user_info['user_id']}/volcano_plot_highlighted.png",
+                    # "highlighted_volcano_pdf": f"{BASE_URL}/figures/micro/{user_info['user_id']}/highlighted_volcano.pdf"
                 }
                }
 
         
     except Exception as e:
         return {"message": "Error in generating highlighted volcano plot", "error": str(e)}
+   
+
+
+# @router.get('/select_condition/{option}')
+# async def select_condition(option: int, user_info: dict = Depends(verify_token)):
+#     try:
+
+#         robjects.r['setwd'](R_CODE_DIRECTORY + f"/{user_info['user_id']}")
+
+#         robjects.r(
+#         f"""
+#             library(DESeq2)
+#             condition <- readRDS("rds/condition.rds")
+#             dds <- readRDS("rds/dds.rds")
+#             condition <- as.data.frame(condition)
+#             ref_level <- as.character(condition[{option},]) 
+#             dds$Treatment <- relevel(dds$Treatment, ref = ref_level)
+#             dds <- DESeq(dds)
+#             coeff_names <- as.data.frame(resultsNames(dds))
+#             saveRDS(coeff_names, "rds/coeff_names.rds")
+#             saveRDS(ref_level, "rds/ref_level.rds")
+#             saveRDS(dds, "rds/dds.rds")
+#         """)
+
+#         pandas2ri.activate()
+
+#         readRDS = robjects.r['readRDS']
+#         coeff_vector = readRDS("rds/coeff_names.rds")
+
+#         coeff_vector = list(coeff_vector[0])
+
+#         # print(coeff_vector[0])
+
+#         coeffs = []
+
+#         for coeff in coeff_vector:
+#             coeffs.append(str(coeff))
     
+#         return {"options": coeffs}
+    
+#     except Exception as e:
+#         return {"message": "Error in selecting condition", "error": str(e)}
+    
+
+
+    
+
+
+
+
+
+
+
+# user will pass the coeff and it will show the volcano plot
+
+ 
 
 
 

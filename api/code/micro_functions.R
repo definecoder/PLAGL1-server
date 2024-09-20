@@ -294,6 +294,8 @@ plot_volcano_with_highlight <- function(topTable1, highlight_data, gene_ids, tit
     }
 
     print(volcano_plot)
+
+    ggsave("figures/volcano_plot_highlighted.png", plot = volcano_plot)
 }
 
 
@@ -342,12 +344,9 @@ perform_differential_expression <- function(count_data_subset, sample_info, grou
     fit <- lmFit(count_data_subset, design)
     condition <- unique(group)
 
-    # Display the available conditions (reference options)
-    cat("Available conditions:\n")
-    cat(condition, sep = ", ")
 
     # Ask the user to input the reference condition
-    Reference <- readline(prompt = "\nEnter the reference condition: ")
+    Reference <- readRDS("rds/Reference.rds")
 
     # Check if the entered reference condition is valid
     if (!(Reference %in% condition)) {
@@ -367,7 +366,9 @@ perform_differential_expression <- function(count_data_subset, sample_info, grou
 
         # resLFC
         topTable1 <- topTable(fit2, adjust = "fdr", number = Inf)
-        write.csv(topTable1, "LFC.csv")
+
+        saveRDS(topTable1, "rds/topTable1.rds")
+        write.csv(topTable1, "files/LFC.csv")
 
         # Call function to plot adjusted P-value distribution
         plot_pvalue_distribution(topTable1, contrast_name = cts)
@@ -379,32 +380,22 @@ perform_differential_expression <- function(count_data_subset, sample_info, grou
         message("Number of Upregulated Genes (logFC > 1, adj.P.Val < 0.05): ", nrow(UP_Genes))
         message("Number of Downregulated Genes (logFC < -1, adj.P.Val < 0.05): ", nrow(Down_Genes))
 
-        up_file <- paste0("Upregulated_Genes_", treat, "_vs_", Reference, ".csv")
-        down_file <- paste0("Downregulated_Genes_", treat, "_vs_", Reference, ".csv")
+        up_file <- "files/upregulated_genes.csv"
+        down_file <- "files/downregulated_genes.csv"
 
         write.csv(UP_Genes, up_file)
         write.csv(Down_Genes, down_file)
 
 
         # Plot volcano plot for each contrast
+        png("figures/volcano_plot.png")
         plot_volcano(topTable1, title = paste("Volcano Plot: ", treat, " vs ", Reference))
+        dev.off()
 
         # Ask the user if they want to highlight any specific gene(s)
-        highlight_genes <- readline(prompt = "Highlight any specific gene(s)? Enter the gene IDs separated by commas, or press Enter to skip: ")
-
-        if (nchar(highlight_genes) > 0) {
-            gene_ids <- trimws(unlist(strsplit(highlight_genes, ",")))
-
-            # Highlight the specified genes in the volcano plot
-            highlight_data <- topTable1[rownames(topTable1) %in% gene_ids, ]
-            if (nrow(highlight_data) > 0) {
-                plot_volcano_with_highlight(topTable1, highlight_data, gene_ids, title = paste("Highlighted Volcano Plot: ", treat, " vs ", Reference))
-            } else {
-                message("None of the entered gene IDs were found in the data.")
-            }
-        }
     }
 }
+
 
 
 test <- function() {
