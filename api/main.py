@@ -15,6 +15,7 @@ from routers.auth_router import router as auth_router
 from routers.operation_router import router as operation_router
 from routers.file_router import router as file_router
 from routers.micro_router import router as micro_router
+from routers.annotation_router import router as annotation_router
 
 app = FastAPI()
 
@@ -42,6 +43,7 @@ app.include_router(auth_router)
 app.include_router(operation_router)
 app.include_router(file_router)
 app.include_router(micro_router)
+app.include_router(annotation_router)
 
 # Authenticate the user
 

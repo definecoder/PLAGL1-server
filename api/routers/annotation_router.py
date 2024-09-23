@@ -12,58 +12,38 @@ from core.consts import BASE_URL
 
 pandas2ri.activate()
 
-router = APIRouter(prefix='/operations/micro', tags=['micro_array'])
+router = APIRouter(prefix='/operations/annotation', tags=['annotation'])
 
 R_CODE_DIRECTORY = os.path.join(os.path.dirname(__file__), '../code')
 
 
 
-@router.post('/init')
-async def init(count_data: UploadFile = File(...), meta_data: UploadFile = File(...), user_info: dict = Depends(verify_token)):
+
+@router.get('/organism_names')
+async def init(user_info: dict = Depends(verify_token)):
 
     try:
 
-        os.makedirs(os.path.join(R_CODE_DIRECTORY, str(user_info['user_id']), "micro"), exist_ok=True)
-        os.makedirs(os.path.join(R_CODE_DIRECTORY, str(user_info['user_id']), "micro", "rds"), exist_ok=True)
-        os.makedirs(os.path.join(R_CODE_DIRECTORY, str(user_info['user_id']), "micro", "files"), exist_ok=True)
-        os.makedirs(os.path.join(R_CODE_DIRECTORY, str(user_info['user_id']), "micro", "figures"), exist_ok=True)
+        os.makedirs(os.path.join(R_CODE_DIRECTORY, str(user_info['user_id']), "annotation"), exist_ok=True)
+        os.makedirs(os.path.join(R_CODE_DIRECTORY, str(user_info['user_id']), "annotation", "rds"), exist_ok=True)
+        os.makedirs(os.path.join(R_CODE_DIRECTORY, str(user_info['user_id']), "annotation", "files"), exist_ok=True)
+        os.makedirs(os.path.join(R_CODE_DIRECTORY, str(user_info['user_id']), "annotation", "figures"), exist_ok=True)
+        FILE_DIR = os.path.join(R_CODE_DIRECTORY, f"{user_info['user_id']}", "annotation" ,"files")
 
-        FILE_DIR = os.path.join(R_CODE_DIRECTORY, f"{user_info['user_id']}", "micro" ,"files")
-        robjects.r['setwd'](R_CODE_DIRECTORY + f"/{user_info['user_id']}/micro")
-        file1_path = os.path.join( FILE_DIR, f"count_data.csv")
-        with open(file1_path, "wb") as f:
-            f.write(await count_data.read())
 
-        file2_path = os.path.join(FILE_DIR, f"meta_data.csv")
-        with open(file2_path, "wb") as f:
-            f.write(await meta_data.read())
+        robjects.r['setwd'](R_CODE_DIRECTORY)
+
+        run_r_script("1_organism_names.R", [str(user_info['user_id'])])
+
+        robjects.r['setwd'](R_CODE_DIRECTORY + f"/{user_info['user_id']}/annotation")
         
-        robjects.r(
-        f"""
-            # load and install libraries
 
-            source("../../micro_functions.R")
+        readRDS = robjects.r['readRDS']
+        organisms = readRDS(f"rds/Organisms.rds")
 
-            print(getwd())
+        organisms = list(organisms)
 
-            load_and_install_libraries()
-
-            data_files <- load_and_preprocess_data("files/count_data.csv", "files/meta_data.csv")
-            count_data_subset <- data_files$count_data_subset
-            sample_info <- data_files$sample_info
-
-            count_data_subset_cc <- complete_cases_fx(count_data_subset)
-            count_data_normalized <- normalize_data(count_data_subset_cc)
-
-
-            saveRDS(sample_info, "rds/sample_info.rds")
-            saveRDS(count_data_subset, "rds/count_data_subset.rds")
-            saveRDS(count_data_subset_cc, "rds/count_data_subset_cc.rds")
-            saveRDS(count_data_normalized, "rds/count_data_normalized.rds")
-            
-        """)
-
-        return {"message": "file uploadeded & Processed successfully!" ,"count_data": file1_path, "meta_data": file2_path}   
+        return {"message": "organism names fetched successfully!", "organisms": organisms}   
 
     except Exception as e:
         return {"message": "Error in uploading file", "error": str(e)}
