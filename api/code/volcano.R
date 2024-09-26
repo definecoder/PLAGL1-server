@@ -56,17 +56,17 @@ summary(resLFC)
 ############################################ UP and Downregulated Genes | NODE 5.1 ####################################################
 
 # resLFC
-write.csv(resLFC, file = paste0("files/resLFC.csv"), row.names = TRUE)
+write.csv(resLFC, file = paste0("files/resLFC_", X, ".csv"), row.names = TRUE)
 
 # Upregulated genes
 Upregulated <- resLFC[resLFC$log2FoldChange > 1 & resLFC$padj < 0.05, ]
 Upregulated_padj <- Upregulated[order(Upregulated$padj), ]
-write.csv(Upregulated_padj, file = paste0("files/Upregulated_padj.csv"), row.names = TRUE)
+write.csv(Upregulated_padj, file = paste0("files/Upregulated_padj_", X, ".csv"), row.names = TRUE)
 
 # Downregulated genes
 Downregulated <- resLFC[resLFC$log2FoldChange < -1 & resLFC$padj < 0.05, ]
 Downregulated_padj <- Downregulated[order(Downregulated$padj), ]
-write.csv(Downregulated_padj, file = paste0("files/Downregulated_padj.csv"), row.names = TRUE)
+write.csv(Downregulated_padj, file = paste0("files/Downregulated_padj_", X, ".csv"), row.names = TRUE)
 
 
 

@@ -183,8 +183,8 @@ async def show_conditions(user_info: dict = Depends(verify_token)):
 
 
 
-@router.get('/select_condition/{option}')
-async def select_condition(option: int, user_info: dict = Depends(verify_token)):
+@router.get('/select_condition')
+async def select_condition(option: str, user_info: dict = Depends(verify_token)):
     try:
 
         robjects.r['setwd'](R_CODE_DIRECTORY + f"/{user_info['user_id']}")
@@ -192,10 +192,8 @@ async def select_condition(option: int, user_info: dict = Depends(verify_token))
         robjects.r(
         f"""
             library(DESeq2)
-            condition <- readRDS("rds/condition.rds")
             dds <- readRDS("rds/dds.rds")
-            condition <- as.data.frame(condition)
-            ref_level <- as.character(condition[{option},]) 
+            ref_level <- \"{option}\"
             dds$Treatment <- relevel(dds$Treatment, ref = ref_level)
             dds <- DESeq(dds)
             coeff_names <- as.data.frame(resultsNames(dds))
@@ -230,7 +228,7 @@ async def select_condition(option: int, user_info: dict = Depends(verify_token))
 
 # this will let the user to select the condition and it will show the coeffs 
 
-@router.get('/volcano/{coeff}')
+@router.get('/volcano')
 async def volcano_plot(coeff: str, user_info: dict = Depends(verify_token)):
 
     try:
@@ -240,11 +238,14 @@ async def volcano_plot(coeff: str, user_info: dict = Depends(verify_token)):
         robjects.r(
         f"""
             coeff_names <- readRDS("rds/coeff_names.rds")
-            X <- coeff_names[{coeff},]
+            X <- \"{coeff}\"
             saveRDS(X, "rds/X.rds")
         """)
 
-        print("etotuku no problem")
+
+        readRDS = robjects.r['readRDS']
+        X = readRDS("rds/X.rds")
+
 
         run_r_script("volcano.R", [str(user_info['user_id'])])
         # f"{BASE_URL}/figures/{user_info['user_id']}/htree_norm.pdf",
@@ -255,9 +256,9 @@ async def volcano_plot(coeff: str, user_info: dict = Depends(verify_token)):
                     "histogram_pdf": f"{BASE_URL}/figures/{user_info['user_id']}/histogram_pvalues.pdf",
                     "volcano_img": f"{BASE_URL}/figures/{user_info['user_id']}/volcano_plot.png",
                     "volcano_pdf": f"{BASE_URL}/figures/{user_info['user_id']}/volcano_plot.pdf",
-                    "upregulated_genes" : f"{BASE_URL}/files/{user_info['user_id']}/Upregulated_padj.csv",
-                    "downregulated_genes" : f"{BASE_URL}/files/{user_info['user_id']}/Downregulated_padj.csv",
-                    "resLFC" : f"{BASE_URL}/files/{user_info['user_id']}/resLFC.csv"
+                    "upregulated_genes" : f"{BASE_URL}/files/{user_info['user_id']}/Upregulated_padj_{X[0]}.csv",
+                    "downregulated_genes" : f"{BASE_URL}/files/{user_info['user_id']}/Downregulated_padj_{X[0]}.csv",
+                    "resLFC" : f"{BASE_URL}/files/{user_info['user_id']}/resLFC_{X[0]}.csv"
                 }
                }
     

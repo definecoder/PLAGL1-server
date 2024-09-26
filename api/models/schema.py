@@ -1,5 +1,8 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
+from typing import List, Optional
+
+from fastapi import UploadFile, File
 class UserCreate(BaseModel):
     email: EmailStr  
     name: str
@@ -15,3 +18,10 @@ class UserLogin(BaseModel):
 class OutlierSchema(BaseModel):
     genes: list[str]
     
+
+
+class AnnotationSchema(BaseModel):
+    organism_name: str
+    id_type: str
+    selected_files: Optional[List[str]] = None 
+    uploaded_files: Optional[List[UploadFile]] = File(None) 

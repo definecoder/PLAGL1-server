@@ -6,7 +6,7 @@ import rpy2.robjects as robjects
 from rpy2.robjects import pandas2ri
 import os
 import subprocess
-from models.schema import OutlierSchema
+from models.schema import OutlierSchema, AnnotationSchema
 from core.consts import BASE_URL
 
 
@@ -49,6 +49,20 @@ async def init(user_info: dict = Depends(verify_token)):
         return {"message": "Error in uploading file", "error": str(e)}
     
     
+
+@router.post('/annotate_genes')
+async def annotate_genes(configs: AnnotationSchema, user_info: dict = Depends(verify_token)):
+
+    print(configs)
+
+
+
+
+
+
+
+
+
 
 @router.get('/analyze')
 async def analyze(user_info: dict = Depends(verify_token)):
