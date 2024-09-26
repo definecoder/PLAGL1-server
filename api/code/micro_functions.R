@@ -5,12 +5,12 @@ print("loading micro functions")
 load_and_install_libraries <- function() {
     required_libraries <- c("readr", "limma", "umap", "ggplot2", "Rtsne", "ape")
 
-    BiocManager::install("limma")
+    BiocManager::install("limma", ask = FALSE)
 
     # Function to check if a package is installed, and install it if not
     install_if_missing <- function(pkg) {
         if (!requireNamespace(pkg, quietly = TRUE)) {
-            install.packages(pkg, dependencies = TRUE)
+            install.packages(pkg, dependencies = TRUE, update = TRUE, ask = FALSE)
         }
         library(pkg, character.only = TRUE)
     }
@@ -256,6 +256,7 @@ plot_volcano <- function(topTable1, title = "Volcano Plot") {
         scale_color_manual(values = c("Upregulated" = "red", "Downregulated" = "blue", "Not Significant" = "grey")) +
         theme_minimal()
 
+    ggsave("figures/volcano_plot.png", plot = volcano_plot)
     print(volcano_plot)
 }
 
@@ -380,17 +381,22 @@ perform_differential_expression <- function(count_data_subset, sample_info, grou
         message("Number of Upregulated Genes (logFC > 1, adj.P.Val < 0.05): ", nrow(UP_Genes))
         message("Number of Downregulated Genes (logFC < -1, adj.P.Val < 0.05): ", nrow(Down_Genes))
 
-        up_file <- "files/upregulated_genes.csv"
-        down_file <- "files/downregulated_genes.csv"
+        # paste0("Upregulated_Genes_", treat, "_vs_", Reference, ".csv")
+
+        up_file <- paste0("files/Upregulated_Genes_", treat, "_vs_", Reference, ".csv")
+        down_file <- paste0("files/Downregulated_Genes_", treat, "_vs_", Reference, ".csv")
 
         write.csv(UP_Genes, up_file)
         write.csv(Down_Genes, down_file)
 
+        saveRDS(treat, "rds/treat.rds")
+
+
 
         # Plot volcano plot for each contrast
-        png("figures/volcano_plot.png")
+        # png("figures/volcano_plot.png")
         plot_volcano(topTable1, title = paste("Volcano Plot: ", treat, " vs ", Reference))
-        dev.off()
+        # dev.off()
 
         # Ask the user if they want to highlight any specific gene(s)
     }

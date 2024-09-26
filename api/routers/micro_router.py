@@ -176,7 +176,7 @@ async def show_conditions(user_info: dict = Depends(verify_token)):
 
 
 
-@router.get('/volcano/{reference}')
+@router.get('/volcano')
 async def volcano_plot(reference: str, user_info: dict = Depends(verify_token)):
 
     try:
@@ -193,14 +193,18 @@ async def volcano_plot(reference: str, user_info: dict = Depends(verify_token)):
 
         run_r_script("volcano_micro.R", [str(user_info['user_id'])])
 
+
+        readRDS = robjects.r['readRDS']
+        treat = readRDS("rds/treat.rds")
+
         # run_r_script("volcano.R", [str(user_info['user_id'])])
         # f"{BASE_URL}/figures/{user_info['user_id']}/htree_norm.pdf",
 
         return {"message": "Volcano plot generated successfully!",
                 "results": {
                     "volcano_img": f"{BASE_URL}/figures/micro/{user_info['user_id']}/volcano_plot.png",
-                    "upregulated_genes" : f"{BASE_URL}/files/micro/{user_info['user_id']}/upregulated_genes.csv",
-                    "downregulated_genes" : f"{BASE_URL}/files/micro/{user_info['user_id']}/downregulated_genes.csv",
+                    "upregulated_genes" : f"{BASE_URL}/files/micro/{user_info['user_id']}/Upregulated_genes_{treat[0]}_vs_{reference}.csv",
+                    "downregulated_genes" : f"{BASE_URL}/files/micro/{user_info['user_id']}/Downregulated_genes_{treat[0]}_vs_{reference}.csv",
                     "resLFC" : f"{BASE_URL}/files/micro/{user_info['user_id']}/LFC.csv"
                 }
                }
