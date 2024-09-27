@@ -23,3 +23,7 @@ class OutlierSchema(BaseModel):
 class AnnotationSchema(BaseModel):
     organism_name: str
     id_type: str
+
+
+class AnnotatedVolcanoSchema(BaseModel):
+    gene_list: list[str]

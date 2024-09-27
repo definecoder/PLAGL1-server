@@ -29,3 +29,7 @@ for (csv_file_path in csv_file_paths) {
     # Add the output file path to the list
     output_file_paths <- c(output_file_paths, output_file_path)
 }
+
+
+saveRDS(output_file_paths, "rds/output_file_paths.rds")
+saveRDS(csv_file_paths, "rds/csv_file_paths.rds")

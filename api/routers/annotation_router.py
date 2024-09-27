@@ -8,7 +8,7 @@ import rpy2.robjects as robjects
 from rpy2.robjects import pandas2ri
 import os
 import subprocess
-from models.schema import OutlierSchema, AnnotationSchema
+from models.schema import OutlierSchema, AnnotatedVolcanoSchema
 from core.consts import BASE_URL
 
 
@@ -54,15 +54,10 @@ async def init(user_info: dict = Depends(verify_token)):
 
 @router.post('/annotate_genes')
 async def annotate_genes(files: List[UploadFile] = File(None), organism_name: str = Form(...), id_type: str = Form(...) , user_info: dict = Depends(verify_token)):
-    print(organism_name)
-    print(id_type)
-
-    FILE_DIR = os.path.join(R_CODE_DIRECTORY, f"{user_info['user_id']}", "annotation" ,"files")
-
-
-    file_names = [file.filename for file in files] if files else []
 
     try:
+        FILE_DIR = os.path.join(R_CODE_DIRECTORY, f"{user_info['user_id']}", "annotation" ,"files")
+        file_names = [file.filename for file in files] if files else []
         for file in files:
             with open(os.path.join(FILE_DIR, file.filename), "wb") as f:
                 f.write(file.file.read())
@@ -105,260 +100,56 @@ async def annotate_genes(files: List[UploadFile] = File(None), organism_name: st
     
 
 
+@router.post('/annotated_volcano')
+async def annotated_volcano(data: AnnotatedVolcanoSchema, user_info: dict = Depends(verify_token)):
 
-
-
-
-
-
-
-@router.get('/analyze')
-async def analyze(user_info: dict = Depends(verify_token)):
     try:
-
         robjects.r['setwd'](R_CODE_DIRECTORY)
 
-        run_r_script("analyze_micro.R", [str(user_info['user_id'])])
-    except Exception as e:
-        return {"message": "Error in analyzing file", "error": str(e)}
+
+        file_path = f"{user_info['user_id']}/annotation/rds/gene_ids.rds"
     
-    return {
-        "message": "Analysis completed successfully!",
-        "results": {
-            "boxplot_denorm_img": f"{BASE_URL}/figures/micro/{user_info['user_id']}/Boxplot (Before Normalization).png",
-            "boxplot_norm_img": f"{BASE_URL}/figures/micro/{user_info['user_id']}/Boxplot (After Normalization).png",
-            "kmeans_denorm_img": f"{BASE_URL}/figures/micro/{user_info['user_id']}/K-Means Clustering (Before Normalization).png",
-            "kmeans_norm_img": f"{BASE_URL}/figures/micro/{user_info['user_id']}/K-Means Clustering (After Normalization).png",
 
-            "pca_denorm_img": f"{BASE_URL}/figures/micro/{user_info['user_id']}/PCA Plot (Before Normalization).png",
-            "pca_norm_img": f"{BASE_URL}/figures/micro/{user_info['user_id']}/PCA Plot (After Normalization).png",
-
-            "htree_denorm_img": f"{BASE_URL}/figures/micro/{user_info['user_id']}/Phylogenetic Tree (Before Normalization).png",
-            "htree_norm_img": f"{BASE_URL}/figures/micro/{user_info['user_id']}/Phylogenetic Tree (After Normalization).png",
-            
-            "tsne_denorm_img": f"{BASE_URL}/figures/micro/{user_info['user_id']}/t-SNE Plot (Before Normalization).png",
-            "tsne_norm_img": f"{BASE_URL}/figures/micro/{user_info['user_id']}/t-SNE Plot (After Normalization).png",
-            "umap_denorm_img": f"{BASE_URL}/figures/micro/{user_info['user_id']}/UMAP Plot (Before Normalization).png",
-            "umap_norm_img": f"{BASE_URL}/figures/micro/{user_info['user_id']}/UMAP Plot (After Normalization).png",
-
-            "count_data_csv": f"{BASE_URL}/files/micro/{user_info['user_id']}/count_data.csv",
-            "meta_data_csv": f"{BASE_URL}/files/micro/{user_info['user_id']}/meta_data.csv"
-        }
-    }
-
-
-
-
-@router.post('/remove_outliers')
-async def remove_outliers(data: OutlierSchema, user_info: dict = Depends(verify_token)):
-
-    try:
-
-        robjects.r['setwd'](R_CODE_DIRECTORY)
-
-        print(f"current python wd: {os.getcwd()}")
-
-        file_path = f"{user_info['user_id']}/micro/rds/outliers.rds"
-        
-
-        print(robjects.r('getwd()'))
-
-        genes = data.genes
+        genes = data.gene_list
         r_genes_list = robjects.StrVector(genes)
         r_saveRDS = robjects.r['saveRDS']
+        r_readRDS = robjects.r['readRDS']   
         r_saveRDS(r_genes_list, file=file_path)
 
-        # robjects.r['setwd'](R_CODE_DIRECTORY)
-        # robjects.r['setwd'](R_CODE_DIRECTORY)
-        print("ekhane ashenai")
-        run_r_script("remove_outlier_micro.R", [str(user_info['user_id'])])
-        return {
-            "message": "Outliers removed successfully!", 
-            "results": {
-                "boxplot_denorm_img": f"{BASE_URL}/figures/micro/{user_info['user_id']}/Boxplot (Before Normalization).png",
-                "boxplot_norm_img": f"{BASE_URL}/figures/micro/{user_info['user_id']}/Boxplot (After Normalization).png",
-                "kmeans_denorm_img": f"{BASE_URL}/figures/micro/{user_info['user_id']}/K-Means Clustering (Before Normalization).png",
-                "kmeans_norm_img": f"{BASE_URL}/figures/micro/{user_info['user_id']}/K-Means Clustering (After Normalization).png",
+        run_r_script("annotated_volcano.R", [str(user_info['user_id'])])
 
-                "pca_denorm_img": f"{BASE_URL}/figures/micro/{user_info['user_id']}/PCA Plot (Before Normalization).png",
-                "pca_norm_img": f"{BASE_URL}/figures/micro/{user_info['user_id']}/PCA Plot (After Normalization).png",
+        
+        output_file_paths = r_readRDS(f"{user_info['user_id']}/annotation/rds/output_file_paths.rds")
 
-                "htree_denorm_img": f"{BASE_URL}/figures/micro/{user_info['user_id']}/Phylogenetic Tree (Before Normalization).png",
-                "htree_norm_img": f"{BASE_URL}/figures/micro/{user_info['user_id']}/Phylogenetic Tree (After Normalization).png",
-                
-                "tsne_denorm_img": f"{BASE_URL}/figures/micro/{user_info['user_id']}/t-SNE Plot (Before Normalization).png",
-                "tsne_norm_img": f"{BASE_URL}/figures/micro/{user_info['user_id']}/t-SNE Plot (After Normalization).png",
-                "umap_denorm_img": f"{BASE_URL}/figures/micro/{user_info['user_id']}/UMAP Plot (Before Normalization).png",
-                "umap_norm_img": f"{BASE_URL}/figures/micro/{user_info['user_id']}/UMAP Plot (After Normalization).png",
+        print(output_file_paths)
+        # remove files/ from the file paths
+        output_file_paths = [file_path.split("files/")[1] for file_path in output_file_paths]
 
-                "count_data_csv": f"{BASE_URL}/files/micro/{user_info['user_id']}/count_data.csv",
-                "meta_data_csv": f"{BASE_URL}/files/micro/{user_info['user_id']}/meta_data.csv"
-            }
-        }
-    
-    except Exception as e:
-        return {"message": "Error in removing outliers", "error": str(e)}
-    
+        volcano_urls = {}
+
+        for file_path in output_file_paths:
+            volcano_urls[file_path] = f"{BASE_URL}/figures/annotation/{user_info['user_id']}/Volcano_{file_path}.png"
 
 
+# annotated_Downregulated_padj_7_LFC_Mice_FROM_16_Samples
+        file_urls = {}
+        for file_path in output_file_paths:
+            # remove annotated_ from the file path
 
-    
-@router.get('/conditions')
-async def show_conditions(user_info: dict = Depends(verify_token)):
-    try:
-        robjects.r['setwd'](R_CODE_DIRECTORY + f"/{user_info['user_id']}/micro")
-        readRDS = robjects.r['readRDS']
-        sample_info_clean = readRDS("rds/sample_info_clean.rds")
-        group = sample_info_clean.rx(True, 1)
-        conditions = list(set(group))
-        return {"options": conditions}
-    except Exception as e:
-        return {"message": "Error in showing conditions", "error": str(e)}
+            file_path = file_path.replace("annotated_", "")
+            
+            file_urls["downregulated_"+file_path] = f"{BASE_URL}/files/annotation/{user_info['user_id']}/annotated_Downregulated_padj_{file_path}"
+            file_urls["upregulated_"+file_path] = f"{BASE_URL}/files/annotation/{user_info['user_id']}/annotated_Upregulated_padj_{file_path}"
 
+            
+        return {"message": "Volcano plot generated successfully!", "volcano": volcano_urls, "files": file_urls}
 
-
-
-@router.get('/volcano/{reference}')
-async def volcano_plot(reference: str, user_info: dict = Depends(verify_token)):
-
-    try:
-
-        robjects.r['setwd'](R_CODE_DIRECTORY + f"/{user_info['user_id']}/micro")
-
-        robjects.r(
-        f"""
-            Reference <- "{reference}"
-            saveRDS(Reference, "rds/Reference.rds")
-        """)
-
-        print("etotuku no problem")
-
-        run_r_script("volcano_micro.R", [str(user_info['user_id'])])
-
-        # run_r_script("volcano.R", [str(user_info['user_id'])])
-        # f"{BASE_URL}/figures/{user_info['user_id']}/htree_norm.pdf",
-
-        return {"message": "Volcano plot generated successfully!",
-                "results": {
-                    "volcano_img": f"{BASE_URL}/figures/micro/{user_info['user_id']}/volcano_plot.png",
-                    "upregulated_genes" : f"{BASE_URL}/files/micro/{user_info['user_id']}/upregulated_genes.csv",
-                    "downregulated_genes" : f"{BASE_URL}/files/micro/{user_info['user_id']}/downregulated_genes.csv",
-                    "resLFC" : f"{BASE_URL}/files/micro/{user_info['user_id']}/LFC.csv"
-                }
-               }
-    
     except Exception as e:
         return {"message": "Error in generating volcano plot", "error": str(e)}
 
 
-@router.post('/highlighted_volcano')
-async def highlighted_volcano(data: OutlierSchema, user_info: dict = Depends(verify_token)):
-
-    try:
-        robjects.r['setwd'](R_CODE_DIRECTORY + f"/{user_info['user_id']}/micro")
-        r_genes_to_highlight = robjects.StrVector(data.genes)
-        r_saveRDS = robjects.r['saveRDS']
-        r_saveRDS(r_genes_to_highlight, file="rds/highlight_genes.rds")
 
 
-        run_r_script("highlighted_volcano_mirco.R", [str(user_info['user_id'])])
-
-        return {"message": "Highlighted Volcano plot generated successfully!",
-                "results":{
-                    "highlighted_volcano_img": f"{BASE_URL}/figures/micro/{user_info['user_id']}/volcano_plot_highlighted.png",
-                    # "highlighted_volcano_pdf": f"{BASE_URL}/figures/micro/{user_info['user_id']}/highlighted_volcano.pdf"
-                }
-               }
-
-        
-    except Exception as e:
-        return {"message": "Error in generating highlighted volcano plot", "error": str(e)}
-   
-
-
-# @router.get('/select_condition/{option}')
-# async def select_condition(option: int, user_info: dict = Depends(verify_token)):
-#     try:
-
-#         robjects.r['setwd'](R_CODE_DIRECTORY + f"/{user_info['user_id']}")
-
-#         robjects.r(
-#         f"""
-#             library(DESeq2)
-#             condition <- readRDS("rds/condition.rds")
-#             dds <- readRDS("rds/dds.rds")
-#             condition <- as.data.frame(condition)
-#             ref_level <- as.character(condition[{option},]) 
-#             dds$Treatment <- relevel(dds$Treatment, ref = ref_level)
-#             dds <- DESeq(dds)
-#             coeff_names <- as.data.frame(resultsNames(dds))
-#             saveRDS(coeff_names, "rds/coeff_names.rds")
-#             saveRDS(ref_level, "rds/ref_level.rds")
-#             saveRDS(dds, "rds/dds.rds")
-#         """)
-
-#         pandas2ri.activate()
-
-#         readRDS = robjects.r['readRDS']
-#         coeff_vector = readRDS("rds/coeff_names.rds")
-
-#         coeff_vector = list(coeff_vector[0])
-
-#         # print(coeff_vector[0])
-
-#         coeffs = []
-
-#         for coeff in coeff_vector:
-#             coeffs.append(str(coeff))
-    
-#         return {"options": coeffs}
-    
-#     except Exception as e:
-#         return {"message": "Error in selecting condition", "error": str(e)}
-    
-
-
-    
-
-
-
-
-
-
-
-# user will pass the coeff and it will show the volcano plot
-
- 
-
-
-
-
-
-
-    
-
-
-
-
-
-
-@router.get("/test")
-async def test():
-    # os.makedirs(FILE_DIR, exist_ok=True)
-    robjects.r['setwd'](R_CODE_DIRECTORY + "/1")
-    ot = robjects.r(
-        f"""
-            md <- readRDS("rds/count_data.rds")
-            head(md)
-        """
-    )
-
-    robjects.r['setwd'](R_CODE_DIRECTORY)
-
-    print(ot)
-
-    return {"message": "Tested successfully!"}
-    # run_r_script("test.R")
 
 
 
