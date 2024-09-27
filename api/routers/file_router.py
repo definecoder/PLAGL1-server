@@ -44,3 +44,21 @@ async def get_file(user_id: str ,file_path: str):
         return FileResponse(f"{R_CODE_DIRECTORY}/{user_id}/micro/files/{file_path}")
     except Exception as e:
         return {"message": "Error in uploading file", "error": str(e)}
+    
+
+
+@router.get('/figures/annotation/{user_id}/{file_path}')
+async def get_file(user_id: str , file_path: str):
+    try:     
+        return FileResponse(f"{R_CODE_DIRECTORY}/{user_id}/annotation/figures/{file_path}")
+    except Exception as e:
+        return {"message": "Error in uploading file", "error": str(e)}
+    
+
+
+@router.get('/files/annotation/{user_id}/{file_path}')
+async def get_file(user_id: str ,file_path: str):
+    try:     
+        return FileResponse(f"{R_CODE_DIRECTORY}/{user_id}/annotation/files/{file_path}")
+    except Exception as e:
+        return {"message": "Error in uploading file", "error": str(e)}

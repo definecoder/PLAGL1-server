@@ -23,5 +23,3 @@ class OutlierSchema(BaseModel):
 class AnnotationSchema(BaseModel):
     organism_name: str
     id_type: str
-    selected_files: Optional[List[str]] = None 
-    uploaded_files: Optional[List[UploadFile]] = File(None) 

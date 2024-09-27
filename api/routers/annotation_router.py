@@ -1,6 +1,8 @@
 
 
-from fastapi import APIRouter, File, UploadFile, Depends
+from fastapi import APIRouter, File, UploadFile, Depends, Form
+from typing import List, Optional
+from pydantic import BaseModel
 from core.security import verify_token
 import rpy2.robjects as robjects
 from rpy2.robjects import pandas2ri
@@ -28,12 +30,12 @@ async def init(user_info: dict = Depends(verify_token)):
         os.makedirs(os.path.join(R_CODE_DIRECTORY, str(user_info['user_id']), "annotation", "rds"), exist_ok=True)
         os.makedirs(os.path.join(R_CODE_DIRECTORY, str(user_info['user_id']), "annotation", "files"), exist_ok=True)
         os.makedirs(os.path.join(R_CODE_DIRECTORY, str(user_info['user_id']), "annotation", "figures"), exist_ok=True)
-        FILE_DIR = os.path.join(R_CODE_DIRECTORY, f"{user_info['user_id']}", "annotation" ,"files")
+        
 
 
         robjects.r['setwd'](R_CODE_DIRECTORY)
 
-        run_r_script("1_organism_names.R", [str(user_info['user_id'])])
+        run_r_script("organism_names.R", [str(user_info['user_id'])])
 
         robjects.r['setwd'](R_CODE_DIRECTORY + f"/{user_info['user_id']}/annotation")
         
@@ -51,10 +53,56 @@ async def init(user_info: dict = Depends(verify_token)):
     
 
 @router.post('/annotate_genes')
-async def annotate_genes(configs: AnnotationSchema, user_info: dict = Depends(verify_token)):
+async def annotate_genes(files: List[UploadFile] = File(None), organism_name: str = Form(...), id_type: str = Form(...) , user_info: dict = Depends(verify_token)):
+    print(organism_name)
+    print(id_type)
 
-    print(configs)
+    FILE_DIR = os.path.join(R_CODE_DIRECTORY, f"{user_info['user_id']}", "annotation" ,"files")
 
+
+    file_names = [file.filename for file in files] if files else []
+
+    try:
+        for file in files:
+            with open(os.path.join(FILE_DIR, file.filename), "wb") as f:
+                f.write(file.file.read())
+
+        robjects.r['setwd'](R_CODE_DIRECTORY)
+
+
+        csv_file_paths = robjects.StrVector(file_names)
+        path = os.path.join(R_CODE_DIRECTORY, f"{user_info['user_id']}", "annotation" ,"rds")
+        r_saveRDS = robjects.r['saveRDS']
+        r_saveRDS(csv_file_paths, file=path + "/csv_file_paths.rds")
+
+
+
+
+        # make organism_name and id_type R objects using robjects
+        robjects.r(
+        f"""
+            organism_name <- "{organism_name}"
+            id_type <- "{id_type}"
+            saveRDS(organism_name, "{user_info['user_id']}/annotation/rds/organism_name.rds")
+            saveRDS(id_type, "{user_info['user_id']}/annotation/rds/id_type.rds")
+        """
+        )
+
+
+        run_r_script("annotate_genes.R", [str(user_info['user_id']), organism_name, id_type])
+
+        # "meta_data_csv": f"{BASE_URL}/files/micro/{user_info['user_id']}/meta_data.csv"
+
+        urls = {}
+        for file_name in file_names:
+            urls[file_name] = f"{BASE_URL}/files/annotation/{user_info['user_id']}/annotated_{file_name}"
+        
+        return {"message": "Genes annotated successfully!", "annotated_csv": urls}
+    
+    except Exception as e:
+
+        return {"message": "Error in annotating genes", "error": str(e)}
+    
 
 
 
