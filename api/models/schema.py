@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr, Field
 
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from fastapi import UploadFile, File
 class UserCreate(BaseModel):
@@ -27,3 +27,13 @@ class AnnotationSchema(BaseModel):
 
 class AnnotatedVolcanoSchema(BaseModel):
     gene_list: list[str]
+
+
+class VenFile(BaseModel):
+    file_path: str
+    name: str
+
+class VennSchema(BaseModel):
+    file_list: List[VenFile]
+    ven_reg: str
+

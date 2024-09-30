@@ -62,3 +62,22 @@ async def get_file(user_id: str ,file_path: str):
         return FileResponse(f"{R_CODE_DIRECTORY}/{user_id}/annotation/files/{file_path}")
     except Exception as e:
         return {"message": "Error in uploading file", "error": str(e)}
+    
+
+
+
+@router.get('/figures/venn/{user_id}/{file_path}')
+async def get_file(user_id: str , file_path: str):
+    try:     
+        return FileResponse(f"{R_CODE_DIRECTORY}/{user_id}/venn/figures/{file_path}")
+    except Exception as e:
+        return {"message": "Error in uploading file", "error": str(e)}
+    
+
+
+@router.get('/files/venn/{user_id}/{file_path}')
+async def get_file(user_id: str ,file_path: str):
+    try:     
+        return FileResponse(f"{R_CODE_DIRECTORY}/{user_id}/venn/files/{file_path}")
+    except Exception as e:
+        return {"message": "Error in uploading file", "error": str(e)}

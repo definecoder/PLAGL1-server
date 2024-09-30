@@ -294,33 +294,28 @@ async def highlighted_volcano(data: OutlierSchema, user_info: dict = Depends(ver
 
 
 
+@router.get('/list_of_files')
+async def list_of_files(user_info: dict = Depends(verify_token)):
+
+    def safe_listdir(directory, prefix=""):
+        if os.path.exists(directory):
+            return [os.path.join(prefix, f) for f in os.listdir(directory)]
+        return []
+
+    try:
+        USER_DIR = os.path.join(R_CODE_DIRECTORY, str(user_info['user_id']))
+
+        files = (
+            safe_listdir(os.path.join(USER_DIR, "files"), "files/") +
+            safe_listdir(os.path.join(USER_DIR, "micro/files"), "micro/files/") +
+            safe_listdir(os.path.join(USER_DIR, "annotation/files"), "annotation/files/")
+        )
+
+        return {"files": files}    
+    except Exception as e:
+        return {"message": "Error in listing files", "error": str(e)}
 
 
-
-    
-
-
-
-
-
-
-@router.get("/test")
-async def test():
-    # os.makedirs(FILE_DIR, exist_ok=True)
-    robjects.r['setwd'](R_CODE_DIRECTORY + "/1")
-    ot = robjects.r(
-        f"""
-            md <- readRDS("rds/count_data.rds")
-            head(md)
-        """
-    )
-
-    robjects.r['setwd'](R_CODE_DIRECTORY)
-
-    print(ot)
-
-    return {"message": "Tested successfully!"}
-    # run_r_script("test.R")
 
 
 
