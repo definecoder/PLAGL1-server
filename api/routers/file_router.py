@@ -81,3 +81,20 @@ async def get_file(user_id: str ,file_path: str):
         return FileResponse(f"{R_CODE_DIRECTORY}/{user_id}/venn/files/{file_path}")
     except Exception as e:
         return {"message": "Error in uploading file", "error": str(e)}
+    
+
+@router.get('/figures/heatmap/{user_id}/{file_path}')
+async def get_file(user_id: str , file_path: str):
+    try:     
+        return FileResponse(f"{R_CODE_DIRECTORY}/{user_id}/heatmap/figures/{file_path}")
+    except Exception as e:
+        return {"message": "Error in uploading file", "error": str(e)}
+    
+
+
+@router.get('/files/heatmap/{user_id}/{file_path}')
+async def get_file(user_id: str ,file_path: str):
+    try:     
+        return FileResponse(f"{R_CODE_DIRECTORY}/{user_id}/heatmap/files/{file_path}")
+    except Exception as e:
+        return {"message": "Error in uploading file", "error": str(e)}

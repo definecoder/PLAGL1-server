@@ -37,3 +37,7 @@ class VennSchema(BaseModel):
     file_list: List[VenFile]
     ven_reg: str
 
+class HeatmapSchema(BaseModel):
+    gene_list: List[str]
+    file_list: List[str]
+    column_names: List[str]

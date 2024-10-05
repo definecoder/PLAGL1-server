@@ -308,13 +308,33 @@ async def list_of_files(user_info: dict = Depends(verify_token)):
         files = (
             safe_listdir(os.path.join(USER_DIR, "files"), "files/") +
             safe_listdir(os.path.join(USER_DIR, "micro/files"), "micro/files/") +
-            safe_listdir(os.path.join(USER_DIR, "annotation/files"), "annotation/files/")
+            safe_listdir(os.path.join(USER_DIR, "annotation/files"), "annotation/files/") + 
+            safe_listdir(os.path.join(USER_DIR, "heatmap/files"), "heatmap/files/")
         )
 
         return {"files": files}    
     except Exception as e:
         return {"message": "Error in listing files", "error": str(e)}
 
+
+@router.get('/list_of_annotated_files')
+async def list_of_annotated_files(user_info: dict = Depends(verify_token)):
+
+    def safe_listdir(directory, prefix=""):
+        if os.path.exists(directory):
+            return [os.path.join(prefix, f) for f in os.listdir(directory)]
+        return []
+
+    try:
+        USER_DIR = os.path.join(R_CODE_DIRECTORY, str(user_info['user_id']))
+
+        files = (
+            safe_listdir(os.path.join(USER_DIR, "annotation/files"), "annotation/files/")
+        )
+
+        return {"files": files}    
+    except Exception as e:
+        return {"message": "Error in listing files", "error": str(e)}
 
 
 

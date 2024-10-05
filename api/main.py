@@ -17,6 +17,7 @@ from routers.file_router import router as file_router
 from routers.micro_router import router as micro_router
 from routers.annotation_router import router as annotation_router
 from routers.venn_router import router as venn_router
+from routers.heatmap_router import router as heatmap_router 
 
 app = FastAPI()
 
@@ -46,6 +47,7 @@ app.include_router(file_router)
 app.include_router(micro_router)
 app.include_router(annotation_router)
 app.include_router(venn_router)
+app.include_router(heatmap_router)
 
 # Authenticate the user
 
