@@ -906,7 +906,7 @@ async def select_condition(option: str, user_info: dict = Depends(verify_token))
         for coeff in coeff_vector:
             coeffs.append(str(coeff))
     
-        return {"options": coeffs}
+        return {"options": coeffs[1:]}
     
     except Exception as e:
         return {"message": "Error in selecting condition", "error": str(e)}
@@ -918,7 +918,7 @@ async def select_condition(option: str, user_info: dict = Depends(verify_token))
 
 # this will let the user to select the condition and it will show the coeffs 
 
-@router.get('/volcano')
+@router.get('/dge-analysis')
 async def volcano_plot(coeff: str, user_info: dict = Depends(verify_token)):
 
     try:

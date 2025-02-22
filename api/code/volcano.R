@@ -37,17 +37,33 @@ resLFC <- as.data.frame(resLFC)
 
 
 png("figures/histogram_pvalues.png")
+# Calculate the number of genes with padj < 0.05
+num_significant_genes <- sum(resLFC$padj < 0.05)
+
+# Create histogram plot of p-values
 hist(resLFC$padj,
     breaks = seq(0, 1, length = 21), col = "grey", border = "white",
     xlab = "", ylab = "", main = "Frequencies of padj-values"
 )
+
+# Add text to indicate the number of significant genes
+mtext(paste("Number of genes with padj < 0.05:", num_significant_genes), side = 3, line = 0.5, adj = 0.5)
+
 dev.off()
 
 pdf("figures/histogram_pvalues.pdf")
+# Calculate the number of genes with padj < 0.05
+num_significant_genes <- sum(resLFC$padj < 0.05)
+
+# Create histogram plot of p-values
 hist(resLFC$padj,
     breaks = seq(0, 1, length = 21), col = "grey", border = "white",
     xlab = "", ylab = "", main = "Frequencies of padj-values"
 )
+
+# Add text to indicate the number of significant genes
+mtext(paste("Number of genes with padj < 0.05:", num_significant_genes), side = 3, line = 0.5, adj = 0.5)
+
 dev.off()
 
 summary(resLFC)
