@@ -4,3 +4,4 @@
 *.csv
 *.vscode
 *api/venv
+api/*.*.pyc
