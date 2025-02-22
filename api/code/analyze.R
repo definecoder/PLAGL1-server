@@ -137,17 +137,37 @@ log2_count_matrix <- log2(count_matrix)
 png("figures/Boxplot_denorm.png")
 boxplot(log2_count_matrix,
     outline = FALSE, main = "Boxplot of Log2-transformed Count Data",
-    xlab = "Sample Name",
-    ylab = "Log2-transformed Counts"
-)
+    cex.main = 0.9, # Make title size smaller
+    ylab = "Log2-transformed Counts",
+    cex.axis = 0.7, las = 1, font.axis = 1, xaxt = "n"
+) # Set font.axis to 1 for normal
+
+# Rotate x-axis labels to 45 degrees
+text(
+    x = 1:ncol(log2_count_matrix),
+    y = par("usr")[3] - 0.5, # Adjust y position as needed
+    labels = colnames(log2_count_matrix),
+    srt = 45, adj = 1, xpd = TRUE, cex = 0.7
+) # Removed font for normal
+
 dev.off()
 
 pdf("figures/Boxplot_denorm.pdf")
 boxplot(log2_count_matrix,
     outline = FALSE, main = "Boxplot of Log2-transformed Count Data",
-    xlab = "Sample Name",
-    ylab = "Log2-transformed Counts"
-)
+    cex.main = 0.9, # Make title size smaller
+    ylab = "Log2-transformed Counts",
+    cex.axis = 0.7, las = 1, font.axis = 1, xaxt = "n"
+) # Set font.axis to 1 for normal
+
+# Rotate x-axis labels to 45 degrees
+text(
+    x = 1:ncol(log2_count_matrix),
+    y = par("usr")[3] - 0.5, # Adjust y position as needed
+    labels = colnames(log2_count_matrix),
+    srt = 45, adj = 1, xpd = TRUE, cex = 0.7
+) # Removed font for normal
+
 dev.off()
 
 # Log2 transformation for normalized count data
@@ -161,9 +181,18 @@ png("figures/Boxplot_norm.png")
 boxplot(log2_normalized_counts,
     outline = FALSE,
     main = "Boxplot of Log2-transformed Normalized Count Data",
-    xlab = "Sample Name",
-    ylab = "Log2-transformed Counts"
-)
+    cex.main = 0.9, # Make title size smaller
+    ylab = "Log2-transformed Counts",
+    cex.axis = 0.7, las = 1, font.axis = 1, xaxt = "n"
+) # Set font.axis to 1 for normal
+
+# Rotate x-axis labels to 45 degrees
+text(
+    x = 1:ncol(log2_normalized_counts),
+    y = par("usr")[3] - 0.5, # Adjust y position as needed
+    labels = colnames(log2_normalized_counts),
+    srt = 45, adj = 1, xpd = TRUE, cex = 0.7
+) # Removed font for normal
 dev.off()
 
 
@@ -171,9 +200,18 @@ pdf("figures/Boxplot_norm.pdf")
 boxplot(log2_normalized_counts,
     outline = FALSE,
     main = "Boxplot of Log2-transformed Normalized Count Data",
-    xlab = "Sample Name",
-    ylab = "Log2-transformed Counts"
-)
+    cex.main = 0.9, # Make title size smaller
+    ylab = "Log2-transformed Counts",
+    cex.axis = 0.7, las = 1, font.axis = 1, xaxt = "n"
+) # Set font.axis to 1 for normal
+
+# Rotate x-axis labels to 45 degrees
+text(
+    x = 1:ncol(log2_normalized_counts),
+    y = par("usr")[3] - 0.5, # Adjust y position as needed
+    labels = colnames(log2_normalized_counts),
+    srt = 45, adj = 1, xpd = TRUE, cex = 0.7
+) # Removed font for normal
 dev.off()
 
 
@@ -235,14 +273,22 @@ pca.dat <- cbind(pca.dat, sample_info)
 library(ggplot2)
 # Plot PCA with metadata groups
 plot <- ggplot(pca.dat, aes(PC1, PC2, color = Treatment)) +
-    geom_point() +
-    geom_text(aes(label = rownames(pca.dat)), hjust = 0, vjust = 1) +
+    geom_point(size = 3) + # Adjust point size to match t-SNE
+    geom_text(aes(label = rownames(pca.dat)), hjust = 0.5, vjust = 1.5, size = 3, show.legend = FALSE) + # Bold, smaller labels
     labs(
         x = paste0("PC1: ", pca.var.percent[1], " %"),
         y = paste0("PC2: ", pca.var.percent[2], " %")
     ) +
     theme_minimal() +
-    theme(legend.title = element_blank())
+
+    # Adjust the legend
+    theme(
+        legend.position = "bottom", # Move the legend to the bottom
+        legend.title = element_text(size = 10), # Legend title size
+        legend.text = element_text(size = 8), # Legend text size
+        legend.key.size = unit(0.5, "cm")
+    ) + # Reduce legend key size
+    guides(color = guide_legend(nrow = 2, byrow = TRUE)) # Organize legend into 2 rows
 # save pca plot as a png file
 ggsave("figures/PCA_denorm.png", plot)
 ggsave("figures/PCA_denorm.pdf", plot)
@@ -277,13 +323,22 @@ umap_df <- data.frame(
 library(ggplot2)
 # Plot using ggplot2
 plot <- ggplot(umap_df, aes(x = X1, y = X2, color = Treatment)) +
-    geom_text(aes(label = rownames(sample_info)), hjust = 0, vjust = 1) +
-    geom_point(size = 3) +
+    geom_point(size = 3) + # Adjust point size
+    geom_text(aes(label = rownames(sample_info)), hjust = .5, vjust = 1.5, size = 3, show.legend = FALSE) + # Adjust label size and position
     labs(
         title = "UMAP",
         x = "UMAP 1", y = "UMAP 2"
     ) +
-    theme_minimal()
+    theme_minimal() +
+
+    # Adjust the legend
+    theme(
+        legend.position = "bottom", # Move the legend to the bottom
+        legend.title = element_text(size = 10), # Legend title size
+        legend.text = element_text(size = 8), # Legend text size
+        legend.key.size = unit(0.5, "cm")
+    ) + # Reduce legend key size
+    guides(color = guide_legend(nrow = 2, byrow = TRUE)) # Organize legend into 2 rows
 
 ggsave("figures/UMAP_denorm.png", plot)
 ggsave("figures/UMAP_denorm.pdf", plot)
@@ -313,14 +368,22 @@ tsne_data <- data.frame(
 )
 
 # Plot the t-SNE results using ggplot2
-plot <- ggplot(tsne_data, aes(x = X, y = Y, color = Treatment, label = rownames(sample_info))) +
+plot <- ggplot(tsne_data, aes(x = X, y = Y, color = Treatment)) +
     geom_point(size = 3) +
-    geom_text(aes(label = rownames(sample_info)), hjust = 0, vjust = 1) +
+    geom_text(aes(label = rownames(sample_info)), hjust = 0.5, vjust = 1.5, size = 3, show.legend = FALSE) + # Reduced text size
     theme_minimal() +
     ggtitle("t-SNE Plot") +
     xlab("t-SNE 1") +
     ylab("t-SNE 2") +
-    theme_minimal()
+
+    # Adjust the legend
+    theme(
+        legend.position = "bottom", # Move the legend to the bottom
+        legend.title = element_text(size = 10), # Legend title size
+        legend.text = element_text(size = 8), # Legend text size
+        legend.key.size = unit(0.5, "cm")
+    ) + # Reduce legend key size
+    guides(color = guide_legend(nrow = 2, byrow = TRUE)) # Organize legend into 2 rows
 
 
 ggsave("figures/tSNE_denorm.png", plot)
@@ -329,32 +392,64 @@ ggsave("figures/tSNE_denorm.pdf", plot)
 
 ########################################### Phylogenetic Tree ###############################################
 
-# Load Data
-# data <- read.csv("count_data.csv")
-# Remove non-numeric columns for htree
-# Remove the gene ID column
-# data_numeric <- data[, sapply(data, is.numeric)]
 
-# load the metadata
-# sample_info <- read.csv("meta_data.csv", header =TRUE,row.names = 1)
+set.seed(123)
+library(ape)
+
 
 # Detect outlier samples using hierarchical clustering
 htree <- hclust(dist(t(data_numeric)), method = "average")
 
+phylo_tree <- as.phylo(htree)
+
+
 # Assuming 'htree' and 'metadata' are correctly defined
 
 # Convert labels to factors or unique numeric indices for colors
-label_colors <- as.numeric(factor(sample_info$Treatment))
+group_colors <- as.factor(sample_info$Treatment)
+tip_colors <- as.numeric(group_colors)
+
 
 # Plot the dendrogram with colored labels
 
 pdf("figures/htree_denorm.pdf")
-plot(htree, labels = rownames(sample_info), main = "Hierarchical Clustering Dendrogram", col = label_colors)
+plot.phylo(phylo_tree,
+    type = "phylogram",
+    tip.color = tip_colors,
+    cex = 0.8,
+    main = "Hierarchical Clustering Dendrogram"
+)
+
+# Add a legend for the treatment groups
+legend("topleft",
+    legend = levels(group_colors),
+    col = 1:length(levels(group_colors)),
+    pch = 19,
+    cex = 0.8,
+    bty = "n"
+)
+
 dev.off()
 
 png("figures/htree_denorm.png")
-plot(htree, labels = rownames(sample_info), main = "Hierarchical Clustering Dendrogram", col = label_colors)
+plot.phylo(phylo_tree,
+    type = "phylogram",
+    tip.color = tip_colors,
+    cex = 0.8,
+    main = "Hierarchical Clustering Dendrogram"
+)
+
+# Add a legend for the treatment groups
+legend("topleft",
+    legend = levels(group_colors),
+    col = 1:length(levels(group_colors)),
+    pch = 19,
+    cex = 0.8,
+    bty = "n"
+)
+
 dev.off()
+
 
 # ---------------------------- Done till here ---------------------------- #
 # ---------------------------- Again do the operations ---------------------------- #
@@ -423,11 +518,12 @@ data <- as.data.frame(data_list)
 # Verify no NA or Infinite values remain
 summary(data)
 
-#***** Make A Loop *****#
+#** Make A Loop **#
 
 # Remove non-numeric columns for PCA
 # Remove the gene ID column
 data_numeric <- data[, sapply(data, is.numeric)]
+
 # data_numeric <- data[,1:12]
 
 # Perform PCA
@@ -445,16 +541,24 @@ pca.var.percent <- round(pca.var / sum(pca.var) * 100, digits = 2)
 pca.dat <- cbind(pca.dat, sample_info)
 
 library(ggplot2)
-# Plot PCA with metadata groups
+
 plot <- ggplot(pca.dat, aes(PC1, PC2, color = Treatment)) +
-    geom_point() +
-    geom_text(aes(label = rownames(pca.dat)), hjust = 0, vjust = 1) +
+    geom_point(size = 3) + # Adjust point size to match t-SNE
+    geom_text(aes(label = rownames(pca.dat)), hjust = 0.5, vjust = 1.5, size = 3, show.legend = FALSE) + # Bold, smaller labels
     labs(
         x = paste0("PC1: ", pca.var.percent[1], " %"),
         y = paste0("PC2: ", pca.var.percent[2], " %")
     ) +
     theme_minimal() +
-    theme(legend.title = element_blank())
+
+    # Adjust the legend
+    theme(
+        legend.position = "bottom", # Move the legend to the bottom
+        legend.title = element_text(size = 10), # Legend title size
+        legend.text = element_text(size = 8), # Legend text size
+        legend.key.size = unit(0.5, "cm")
+    ) + # Reduce legend key size
+    guides(color = guide_legend(nrow = 2, byrow = TRUE)) # Organize legend into 2 rows
 # save pca plot as a png file
 ggsave("figures/PCA_norm.png", plot)
 ggsave("figures/PCA_norm.pdf", plot)
@@ -489,13 +593,22 @@ umap_df <- data.frame(
 library(ggplot2)
 # Plot using ggplot2
 plot <- ggplot(umap_df, aes(x = X1, y = X2, color = Treatment)) +
-    geom_text(aes(label = rownames(sample_info)), hjust = 0, vjust = 1) +
-    geom_point(size = 3) +
+    geom_point(size = 3) + # Adjust point size
+    geom_text(aes(label = rownames(sample_info)), hjust = .5, vjust = 1.5, size = 3, show.legend = FALSE) + # Adjust label size and position
     labs(
         title = "UMAP",
         x = "UMAP 1", y = "UMAP 2"
     ) +
-    theme_minimal()
+    theme_minimal() +
+
+    # Adjust the legend
+    theme(
+        legend.position = "bottom", # Move the legend to the bottom
+        legend.title = element_text(size = 10), # Legend title size
+        legend.text = element_text(size = 8), # Legend text size
+        legend.key.size = unit(0.5, "cm")
+    ) + # Reduce legend key size
+    guides(color = guide_legend(nrow = 2, byrow = TRUE)) # Organize legend into 2 rows
 
 ggsave("figures/UMAP_norm.png", plot)
 ggsave("figures/UMAP_norm.pdf", plot)
@@ -525,14 +638,22 @@ tsne_data <- data.frame(
 )
 
 # Plot the t-SNE results using ggplot2
-plot <- ggplot(tsne_data, aes(x = X, y = Y, color = Treatment, label = rownames(sample_info))) +
+plot <- ggplot(tsne_data, aes(x = X, y = Y, color = Treatment)) +
     geom_point(size = 3) +
-    geom_text(aes(label = rownames(sample_info)), hjust = 0, vjust = 1) +
+    geom_text(aes(label = rownames(sample_info)), hjust = 0.5, vjust = 1.5, size = 3, show.legend = FALSE) + # Reduced text size
     theme_minimal() +
     ggtitle("t-SNE Plot") +
     xlab("t-SNE 1") +
     ylab("t-SNE 2") +
-    theme_minimal()
+
+    # Adjust the legend
+    theme(
+        legend.position = "bottom", # Move the legend to the bottom
+        legend.title = element_text(size = 10), # Legend title size
+        legend.text = element_text(size = 8), # Legend text size
+        legend.key.size = unit(0.5, "cm")
+    ) + # Reduce legend key size
+    guides(color = guide_legend(nrow = 2, byrow = TRUE)) # Organize legend into 2 rows
 
 
 ggsave("figures/tSNE_norm.png", plot)
@@ -541,29 +662,60 @@ ggsave("figures/tSNE_norm.pdf", plot)
 
 ########################################### Phylogenetic Tree ###############################################
 
-# Load Data
-# data <- read.csv("count_data.csv")
-# Remove non-numeric columns for htree
-# Remove the gene ID column
-# data_numeric <- data[, sapply(data, is.numeric)]
 
-# load the metadata
-# sample_info <- read.csv("meta_data.csv", header =TRUE,row.names = 1)
+set.seed(123)
+library(ape)
+
 
 # Detect outlier samples using hierarchical clustering
 htree <- hclust(dist(t(data_numeric)), method = "average")
 
+phylo_tree <- as.phylo(htree)
+
+
 # Assuming 'htree' and 'metadata' are correctly defined
 
 # Convert labels to factors or unique numeric indices for colors
-label_colors <- as.numeric(factor(sample_info$Treatment))
+group_colors <- as.factor(sample_info$Treatment)
+tip_colors <- as.numeric(group_colors)
+
 
 # Plot the dendrogram with colored labels
 
-pdf("figures/htree_norm.pdf")
-plot(htree, labels = rownames(sample_info), main = "Hierarchical Clustering Dendrogram", col = label_colors)
+pdf("figures/htree_denorm.pdf")
+plot.phylo(phylo_tree,
+    type = "phylogram",
+    tip.color = tip_colors,
+    cex = 0.8,
+    main = "Hierarchical Clustering Dendrogram"
+)
+
+# Add a legend for the treatment groups
+legend("topleft",
+    legend = levels(group_colors),
+    col = 1:length(levels(group_colors)),
+    pch = 19,
+    cex = 0.8,
+    bty = "n"
+)
+
 dev.off()
 
-png("figures/htree_norm.png")
-plot(htree, labels = rownames(sample_info), main = "Hierarchical Clustering Dendrogram", col = label_colors)
+png("figures/htree_denorm.png")
+plot.phylo(phylo_tree,
+    type = "phylogram",
+    tip.color = tip_colors,
+    cex = 0.8,
+    main = "Hierarchical Clustering Dendrogram"
+)
+
+# Add a legend for the treatment groups
+legend("topleft",
+    legend = levels(group_colors),
+    col = 1:length(levels(group_colors)),
+    pch = 19,
+    cex = 0.8,
+    bty = "n"
+)
+
 dev.off()
