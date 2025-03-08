@@ -2,6 +2,8 @@
 *.pdf
 *.png
 *.csv
+!api/string/*.csv
+!api/code/globals/*.csv
 *.vscode
 *api/venv
 api/*.*.pyc

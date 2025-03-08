@@ -151,12 +151,18 @@ async def batch_effect_correction(user_info: dict = Depends(verify_token)):
         output_dir = os.path.join("code", user_id, "files")
         r_script_path = os.path.join("code", "batch_effect_correction.R")
 
+
+        print("before")
+
         # Check if input file exists
         if not os.path.exists(input_file):
             return {
                 "message": "Input file not found.",
                 "error": f"File not found at {input_file}"
             }
+        
+
+        print("after")
 
         # Run the R script
         command = ["Rscript", r_script_path, input_file, output_dir,user_id]
@@ -201,6 +207,8 @@ from code.code import process_file
 import os
 
 
+
+
 @router.get('/z_score_normalize')
 async def z_score_normalize(user_info: dict = Depends(verify_token)):
     """
@@ -228,7 +236,8 @@ async def z_score_normalize(user_info: dict = Depends(verify_token)):
         if result.get("message") == "Normalization completed successfully.":
             return {
                 "message": result["message"],
-                "normalized_file": result["normalized_file"]
+                
+                "normalized_file": f"{BASE_URL}/files/{user_info['user_id']}/z_score_normalized_data.csv"
             }
         else:
             return {
@@ -269,7 +278,7 @@ async def dimensionality_reduction(user_info: dict = Depends(verify_token)):
             }
 
         # Call the visualization function
-        result = visualize_dimensionality_reduction(input_file, output_dir)
+        result = visualize_dimensionality_reduction(input_file, output_dir, user_info)
 
         # Check if the visualizations were successfully created
         if result.get("message") == "Dimensionality reduction visualizations created successfully.":
@@ -311,7 +320,7 @@ async def correlation_clustermap(user_info: dict = Depends(verify_token)):
             }
 
         # Call the `plot_correlation_clustermap` function
-        result = plot_correlation_clustermap(input_file, output_dir, drop_column)
+        result = plot_correlation_clustermap(input_file, output_dir, drop_column, user_info)
 
         # Return the response from the function
         if result.get("message") == "Correlation clustermap created successfully.":
@@ -356,7 +365,7 @@ async def feature_selection_model(
             }
 
         # Call the feature selection and model training function
-        result = feature_selection_and_model(input_file, output_dir, selection_ratio)
+        result = feature_selection_and_model(input_file, output_dir, selection_ratio, user_info)
 
         # Parse the result returned by the function
         parsed_result = json.loads(result)
@@ -394,7 +403,7 @@ async def benchmark_models_api(user_info: dict = Depends(verify_token)):
         if not os.path.exists(input_file):
             return {"message": "Input file not found.", "error": f"File not found at {input_file}"}
 
-        result = benchmark_models(input_file, output_dir)
+        result = benchmark_models(input_file, output_dir, user_info)
 
         # Ensure result is a dictionary
         if not isinstance(result, dict):
@@ -455,7 +464,8 @@ async def top10_features(model_name: str = Form(...), user_info: dict = Depends(
             best_models=best_models,
             reduced_df=reduced_df,
             selected_model_name=global_model_name,
-            output_dir=output_dir
+            output_dir=output_dir,
+            user_info=user_info
         )
 
         return {
@@ -494,7 +504,7 @@ async def visualize_dimensions_api(
         os.makedirs(output_dir, exist_ok=True)
 
         # Call the function to generate visualizations
-        result = visualize_dimensionality_reduction_feature(input_file, output_dir)
+        result = visualize_dimensionality_reduction_feature(input_file, output_dir, user_info)
 
         # Check for errors in the result
         if "error" in result:
@@ -533,7 +543,7 @@ async def rank_features_api(
         os.makedirs(output_dir, exist_ok=True)
 
         # Call the feature ranking function
-        result = rank_features(input_file, global_model_name, param_grids, classifiers, output_dir)
+        result = rank_features(input_file, global_model_name, param_grids, classifiers, output_dir, user_info)
 
         # Check for errors in the result
         if "error" in result:
@@ -573,7 +583,7 @@ async def evaluate_model_features_api(
             return {"message": "Input file not found.", "error": f"File not found at {input_file}"}
 
         # Call the function
-        result = evaluate_model_with_features(input_file, global_model_name, param_grids, classifiers, output_dir)
+        result = evaluate_model_with_features(input_file, global_model_name, param_grids, classifiers, output_dir, user_info)
 
         # Handle errors
         if "error" in result:
@@ -614,7 +624,7 @@ async def visualize_dimensions_api(
         os.makedirs(output_dir, exist_ok=True)
 
         # Call the function to generate visualizations
-        result = visualize_dimensionality_reduction_final(input_file, output_dir)
+        result = visualize_dimensionality_reduction_final(input_file, output_dir, user_info)
 
         # Check for errors in the result
         if "error" in result:
@@ -650,7 +660,7 @@ async def evaluate_final_model_api(
             return {"message": "Input file not found.", "error": f"File not found at {final_df_path}"}
 
         # Call the function
-        result = evaluate_final_model(final_df_path, global_model_name, param_grids, classifiers, output_dir)
+        result = evaluate_final_model(final_df_path, global_model_name, param_grids, classifiers, output_dir, user_info)
 
         # Handle errors
         if "error" in result:
@@ -1091,6 +1101,75 @@ def run_r_script(script_name, args=None):
 
 
 
+
+# Define the request body schema
+class MappingPlottingRequest(BaseModel):
+    species_name: str
+    gene_symbols: list[str]
+
+@router.post("/mapping")
+async def run_mapping_plotting(request: MappingPlottingRequest):
+    """
+    API to run Workflow_Mapping_Plotting_Input_Genes.R and save results.
+
+
+    {
+    "species_name": "Homo sapiens",
+    "gene_symbols": ["ZNF212", "ZNF451", "PLAGL1", "NFAT5", "ICAM5", "RRAD"]
+}
+
+
+    """
+    try:
+        # Define file paths
+        r_script_path = "string/String_Sources_Update_v1.R"
+        output_dir = "files"
+        os.makedirs(output_dir, exist_ok=True)
+
+        # Convert gene symbols list to JSON string
+        gene_symbols_json = json.dumps(request.gene_symbols)
+
+        # Run the R script
+        command = ["Rscript", r_script_path, request.species_name, gene_symbols_json, output_dir]
+        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+        # Capture stdout and stderr
+        stdout_output = result.stdout.strip()
+        stderr_output = result.stderr.strip()
+
+        # Check for errors
+        if result.returncode != 0:
+            return {"message": "Error running R script", "error": stderr_output}
+
+        return {
+            "message": "Workflow completed successfully!",
+            "output_directory": output_dir,
+            "stdout": stdout_output
+        }
+
+    except Exception as e:
+        return {"message": "Unexpected error", "error": str(e)}
+
+
+
+
+@router.post("/upload-fibro-string")
+async def upload_fibro_string(fibro_up_genes: UploadFile = File(...), user_info: dict = Depends(verify_token)):
+    try:
+        
+        # Save the uploaded file to the user's directory
+        file_path = os.path.join(R_CODE_DIRECTORY, "..", "string","Fibro_UP_genes.csv")
+        print(file_path)
+        with open(file_path, "wb") as f:
+            f.write(await fibro_up_genes.read())
+
+        return {"message": "Fibro UP genes uploaded successfully!"}
+        
+    except Exception as e:
+        return {"message": "Error in uploading fibro string", "error": str(e)}
+
+
+
 # Define the request body schema
 class MappingPlottingRequest(BaseModel):
     species_name: str
@@ -1142,8 +1221,8 @@ async def run_mapping_plotting(request: MappingPlottingRequest, user_info: dict 
 
         return {
             "message": "Workflow completed successfully!",
-            "output_directory": output_dir,
-            "stdout": stdout_output
+            # "output_directory": output_dir,
+            # "stdout": stdout_output
         }
 
     except Exception as e:

@@ -35,7 +35,7 @@ async def init(user_info: dict = Depends(verify_token)):
 
         robjects.r['setwd'](R_CODE_DIRECTORY)
 
-        run_r_script("organism_names.R", [str(user_info['user_id'])])
+        run_r_script("1_organism_names.R", [str(user_info['user_id'])])
 
         robjects.r['setwd'](R_CODE_DIRECTORY + f"/{user_info['user_id']}/annotation")
         

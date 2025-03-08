@@ -4,11 +4,14 @@ if (length(args) < 5) {
   stop("Usage: Rscript script.R species_name gene_symbols_json clustering_method1 clustering_method2 output_dir")
 }
 
-species_name      <- args[1]
+species_name <- args[1]
 gene_symbols_json <- args[2]
-clustering_method1 <- args[3]  # For input gene clustering
-clustering_method2 <- args[4]  # For matched gene clustering
-output_dir        <- args[5]
+clustering_method1 <- args[3] # For input gene clustering
+clustering_method2 <- args[4] # For matched gene clustering
+output_dir <- args[5]
+
+
+print(output_dir)
 
 # Load necessary package for JSON parsing
 library(jsonlite)
@@ -35,10 +38,10 @@ source("string/11_input_genes_enrichment_analysis.R")
 setup_stringdb_environment()
 
 # Load organism list and initialize STRING database
-organism_List <- read.csv("string/Organism_List.csv") 
+organism_List <- read.csv("string/Organism_List.csv")
 print(organism_List)
 
-taxon_id  <- get_taxon_id(organism_List, species_name)
+taxon_id <- get_taxon_id(organism_List, species_name)
 string_db <- initialize_stringdb(taxon_id)
 
 # Input gene list provided by the user
@@ -68,7 +71,7 @@ clustering_methods <- c("fastgreedy", "walktrap", "spinglass", "edge.betweenness
 print(clustering_methods)
 
 # INPUT: Use clustering_method1 for clustering the input gene list
-find_all_clusters(gene_symbols, clustering_method1,output_dir)
+find_all_clusters(gene_symbols, clustering_method1, output_dir)
 
 ####################### Enrichment Analysis for Input Genes #########
 input_genes_enrichment_analysis(mapped_gene_str_IDs, output_dir)
@@ -81,12 +84,12 @@ single_gene_analysis(single_gene_lists, output_dir)
 ############################# Query Gene Analysis ############################
 
 load_query_gene <- "string/Fibro_UP_genes.csv"
-matched_gene_ids <- query_gene_network_analysis(load_query_gene, mapped_gene_str_IDs, neighbor_genes_symbols,output_dir)
+matched_gene_ids <- query_gene_network_analysis(load_query_gene, mapped_gene_str_IDs, neighbor_genes_symbols, output_dir)
 
 ##################### Cluster Finder for Matched Genes #######################
 print(clustering_methods)
 # INPUT: Use clustering_method2 for clustering the matched genes
-find_all_clusters(matched_gene_ids, clustering_method2)
+find_all_clusters(matched_gene_ids, clustering_method2, output_dir)
 
 ############################# Enrichment Analysis for Query Genes ############################
 query_genes_enrichment_analysis(matched_gene_ids, output_dir)

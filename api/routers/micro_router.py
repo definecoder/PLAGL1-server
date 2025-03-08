@@ -49,7 +49,7 @@ async def init(count_data: UploadFile = File(...), meta_data: UploadFile = File(
             load_and_install_libraries()
 
             data_files <- load_and_preprocess_data("files/count_data.csv", "files/meta_data.csv")
-            count_data_subset <- data_files$count_data_subset
+            count_data_subset <- data_files$count_data_subset_normalized
             sample_info <- data_files$sample_info
 
             count_data_subset_cc <- complete_cases_fx(count_data_subset)

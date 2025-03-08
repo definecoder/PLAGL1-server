@@ -3,33 +3,75 @@
 print("loading micro functions")
 
 load_and_install_libraries <- function() {
-    required_libraries <- c("readr", "limma", "umap", "ggplot2", "Rtsne", "ape")
+    # Define required packages
+    required_packages <- c("readr", "limma", "umap", "ggplot2", "Rtsne", "ape", "mice", "tidyverse")
 
-    BiocManager::install("limma", ask = FALSE)
+    # Install BiocManager if not already installed
+    if (!requireNamespace("BiocManager", quietly = TRUE)) {
+        install.packages("BiocManager")
+    }
 
-    # Function to check if a package is installed, and install it if not
+    # Function to check if a package is installed and install it
     install_if_missing <- function(pkg) {
         if (!requireNamespace(pkg, quietly = TRUE)) {
-            install.packages(pkg, dependencies = TRUE, update = TRUE, ask = FALSE)
+            tryCatch(
+                {
+                    install.packages(pkg, dependencies = TRUE)
+                },
+                error = function(e) {
+                    BiocManager::install(pkg, ask = FALSE)
+                }
+            )
         }
         library(pkg, character.only = TRUE)
     }
-    # Iterate over the list of libraries and install if missing
-    invisible(lapply(required_libraries, install_if_missing))
+
+    # Install and load all required packages
+    invisible(lapply(required_packages, install_if_missing))
+}
+
+impute_missing_values_mice <- function(data) {
+    # Impute missing values using Predictive Mean Matching (pmm)
+    imputed_data <- mice(data, method = "pmm", m = 1, maxit = 5, seed = 123)
+
+    # Extract the completed (imputed) dataset
+    completed_data <- complete(imputed_data)
+    return(completed_data)
 }
 
 
 # Function to load and preprocess data
+# Main function to load and preprocess data
 load_and_preprocess_data <- function(count_file, metadata_file) {
+    # Load count data
     count_data <- read.csv(count_file, row.names = 1, header = TRUE)
     count_data <- as.data.frame(lapply(count_data, as.numeric), row.names = rownames(count_data))
 
+    # Load sample information
     sample_info <- read.csv(metadata_file, row.names = 1, header = TRUE)
+    colnames(sample_info)[1] <- "Treatment"
     sample_list <- row.names(sample_info)
+
+    # Subset count data by sample list
     count_data_subset <- count_data[, sample_list]
 
-    return(list(count_data_subset = count_data_subset, sample_info = sample_info, sample_list = sample_list))
+    # Impute missing values if any
+    if (sum(is.na(count_data_subset)) != 0) {
+        count_data_subset <- impute_missing_values_mice(count_data_subset)
+    }
+
+    # Normalize the subset count data
+    count_data_subset_normalized <- normalize_data(count_data_subset)
+
+    return(list(
+        count_data_subset = count_data_subset,
+        count_data_subset_normalized = count_data_subset_normalized,
+        sample_info = sample_info,
+        sample_list = sample_list,
+        Treatment = sample_info$Treatment
+    )) # NEED TO CHECK
 }
+
 
 # Function to complete the cases
 complete_cases_fx <- function(count_data_subset) {
@@ -38,20 +80,20 @@ complete_cases_fx <- function(count_data_subset) {
 }
 
 
-# Function to perform Log2 Transformation and Normalization
+# Function to normalize data using log2 transformation and quantile normalization
 normalize_data <- function(count_data_subset) {
     qx <- as.numeric(quantile(count_data_subset, c(0., 0.25, 0.5, 0.75, 0.99, 1.0), na.rm = TRUE))
 
+    # Apply log2 transformation if certain conditions are met
     if ((qx[5] > 100) || (qx[6] - qx[1] > 50 && qx[2] > 0)) {
         count_data_subset[count_data_subset <= 0] <- NaN
         count_data_subset_log2 <- log2(count_data_subset)
-        count_data_normalized <- normalizeBetweenArrays(count_data_subset_log2, method = "quantile")
+        count_data_subset_normalized <- normalizeBetweenArrays(count_data_subset_log2, method = "quantile")
     } else {
-        count_data_normalized <- normalizeBetweenArrays(count_data_subset, method = "quantile")
+        count_data_subset_normalized <- normalizeBetweenArrays(count_data_subset, method = "quantile")
     }
 
-    # write.csv(count_data_normalized, "normalized_data_8vs8_direct.csv")
-    return(count_data_normalized)
+    return(count_data_subset_normalized)
 }
 
 
@@ -63,14 +105,20 @@ plot_umap <- function(count_data_subset, sample_info, title = "UMAP Plot") {
 
     umap_df <- data.frame(X1 = umap_result$layout[, 1], X2 = umap_result$layout[, 2], sample_info)
 
-    umap_plot <- ggplot(umap_df, aes(x = X1, y = X2, color = group, label = row.names(sample_info))) +
+    print(colnames(sample_info))
+
+    umap_plot <- ggplot(umap_df, aes(x = X1, y = X2, color = Treatment, label = row.names(sample_info))) +
         geom_point(size = 3) +
         geom_text(aes(y = X2 - 0.02), size = 3, hjust = 0.5, vjust = 1) + # Adjusted to place text below the points
         labs(title = title, x = "UMAP 1", y = "UMAP 2") +
         theme_minimal() +
-        theme(legend.position = "right")
-
-    # print(umap_plot)
+        theme(
+            legend.position = "bottom", # Move the legend to the bottom
+            legend.title = element_text(size = 10), # Legend title size
+            legend.text = element_text(size = 8), # Legend text size
+            legend.key.size = unit(0.5, "cm")
+        ) + # Reduce legend key size
+        guides(color = guide_legend(nrow = 2, byrow = TRUE)) # Organize legend into 2 rows
 
     # Save the plot as a PNG file
     ggsave(paste0("figures/", title, ".png"), plot = umap_plot)
@@ -82,15 +130,21 @@ plot_tsne <- function(count_data_subset, sample_info, title = "t-SNE Plot") {
     tsne_result <- Rtsne(t(count_data_subset), dims = 2, perplexity = 1)
     tsne_data <- data.frame(X = tsne_result$Y[, 1], Y = tsne_result$Y[, 2], sample_info)
 
-    tsne_plot <- ggplot(tsne_data, aes(x = X, y = Y, color = group, label = row.names(sample_info))) +
-        geom_point(size = 2) +
+    tsne_plot <- ggplot(tsne_data, aes(x = X, y = Y, color = Treatment, label = row.names(sample_info))) +
+        geom_point(size = 3) +
         geom_text(aes(y = Y - 0.02), size = 3, hjust = 0.5, vjust = 1) + # Adjusted to place text below the points
         theme_minimal() +
         labs(title = title, x = "t-SNE 1", y = "t-SNE 2") +
-        theme(legend.position = "right")
-
-    print(tsne_plot)
-
+        theme_minimal() +
+        # Adjust the legend
+        theme(
+            legend.position = "bottom", # Move the legend to the bottom
+            legend.title = element_text(size = 10), # Legend title size
+            legend.text = element_text(size = 8), # Legend text size
+            legend.key.size = unit(0.5, "cm")
+        ) + # Reduce legend key size
+        guides(color = guide_legend(nrow = 2, byrow = TRUE)) # Organize legend into 2 rows
+    # print(tsne_plot)
     # Save the plot as a PNG file
     ggsave(paste0("figures/", title, ".png"), plot = tsne_plot)
 }
@@ -105,8 +159,8 @@ plot_pca <- function(count_data_subset, sample_info, title = "PCA Plot") {
     pca.var.percent <- round(pca.var / sum(pca.var) * 100, digits = 2)
     pca_data <- cbind(pca_data, sample_info)
 
-    pca_plot <- ggplot(pca_data, aes(PC1, PC2, color = group)) +
-        geom_point(size = 2) +
+    pca_plot <- ggplot(pca_data, aes(PC1, PC2, color = Treatment)) +
+        geom_point(size = 3) +
         geom_text(aes(label = row.names(sample_info), y = PC2 - 0.02), size = 3, hjust = 0.5, vjust = 1) + # Adjust text below points
         labs(
             x = paste0("PC1: ", pca.var.percent[1], " %"),
@@ -114,28 +168,22 @@ plot_pca <- function(count_data_subset, sample_info, title = "PCA Plot") {
             title = title
         ) +
         theme_minimal() +
-        theme(legend.position = "right")
+        # Adjust the legend
+        theme(
+            legend.position = "bottom", # Move the legend to the bottom
+            legend.title = element_text(size = 10), # Legend title size
+            legend.text = element_text(size = 8), # Legend text size
+            legend.key.size = unit(0.5, "cm")
+        ) + # Reduce legend key size
+        guides(color = guide_legend(nrow = 2, byrow = TRUE)) # Organize legend into 2 rows
+    # print(pca_plot)
 
-    print(pca_plot)
 
     # Save the plot as a PNG file
     ggsave(paste0("figures/", title, ".png"), plot = pca_plot)
 }
 
 
-# Function to plot Phylogenetic Tree
-plot_phylo_tree <- function(count_data_subset, title = "Phylogenetic Tree") {
-    set.seed(123)
-    dist_matrix <- dist(t(count_data_subset))
-    hc <- hclust(dist_matrix, method = "average")
-    phylo_tree <- as.phylo(hc)
-
-    png(paste0("figures/", title, ".png"), width = 800, height = 600)
-
-    plot.phylo(phylo_tree, type = "phylogram", tip.color = "blue", cex = 0.8, main = title)
-
-    dev.off()
-}
 
 # Function to plot Phylogenetic Tree with color-coded sample names based on group
 plot_phylo_tree <- function(count_data_subset, sample_info, title = "Phylogenetic Tree") {
@@ -145,7 +193,7 @@ plot_phylo_tree <- function(count_data_subset, sample_info, title = "Phylogeneti
     phylo_tree <- as.phylo(hc)
 
     # Get group information
-    group_colors <- as.factor(sample_info$group)
+    group_colors <- as.factor(sample_info$Treatment)
     tip_colors <- as.numeric(group_colors)
 
 
@@ -204,30 +252,37 @@ plot_kmeans <- function(count_data_subset, sample_info, num_clusters = 3, title 
 
 # Function to generate boxplot
 plot_boxplot <- function(count_data_subset, sample_info, title = "Boxplot") {
-    group_colors <- as.factor(sample_info$group)
-    palette(c("#1B9E77", "#D95F02", "#7570B3"))
-
-
     png(paste0("figures/", title, ".png"))
     boxplot(count_data_subset,
-        outline = FALSE, las = 2,
+        outline = FALSE,
         main = title,
-        xlab = "Samples", ylab = "Expression levels",
-        col = palette()[group_colors],
-        names = row.names(sample_info)
+        cex.main = 0.9, # Make title size smaller
+        ylab = "Log2-transformed Counts",
+        cex.axis = 0.7, las = 1, font.axis = 1, xaxt = "n"
     )
+    # Rotate x-axis labels to 45 degrees
+    text(
+        x = 1:ncol(count_data_subset),
+        y = par("usr")[3] - 0.5, # Adjust y position as needed
+        labels = colnames(count_data_subset),
+        srt = 45, adj = 1, xpd = TRUE, cex = 0.7
+    ) # Removed font for normal
+
     dev.off()
 }
 
 # Function to plot the P-value distribution
-plot_pvalue_distribution <- function(topTable1, contrast_name) {
+plot_pvalue_distribution <- function(topTable1, contrast_name, n_sig_genes) {
     hist(topTable1$adj.P.Val,
-        col = "#B32424",
+        breaks = seq(0, 1, length = 21),
+        col = "grey",
         border = "white",
         xlab = "Adjusted P-value",
         ylab = "Number of Genes",
         main = paste("Adjusted P-value Distribution: ", contrast_name)
     )
+    # Add text to indicate the number of significant genes
+    mtext(paste("Number of genes with padj < 0.05:", n_sig_genes), side = 3, line = 0.5, adj = 0.5)
 }
 
 # Function to generate Volcano Plot
@@ -371,12 +426,18 @@ perform_differential_expression <- function(count_data_subset, sample_info, grou
         saveRDS(topTable1, "rds/topTable1.rds")
         write.csv(topTable1, "files/LFC.csv")
 
+        # UPDATE_22_02_25
+        n_sig_genes <- sum(nrow(topTable1[topTable1$adj.P.Val < 0.05, ]))
+
         # Call function to plot adjusted P-value distribution
-        plot_pvalue_distribution(topTable1, contrast_name = cts)
+        plot_pvalue_distribution(topTable1, contrast_name = cts, n_sig_genes)
 
         # Mark the regulated genes
         UP_Genes <- topTable1[topTable1$logFC > 1 & topTable1$adj.P.Val < 0.05, ]
         Down_Genes <- topTable1[topTable1$logFC < -1 & topTable1$adj.P.Val < 0.05, ]
+
+
+        print(nrow(UP_Genes))
 
         message("Number of Upregulated Genes (logFC > 1, adj.P.Val < 0.05): ", nrow(UP_Genes))
         message("Number of Downregulated Genes (logFC < -1, adj.P.Val < 0.05): ", nrow(Down_Genes))

@@ -5,7 +5,7 @@ library(here)
 setwd(here("api", "code", id, "annotation"))
 source("../../1_Biomart_init_m.R")
 
-available_organisms <- read.csv("files/Organisms_name.csv")
+available_organisms <- read.csv("../../globals/Organisms_name.csv")
 
 # Extract scientific names and dataset names
 Organisms <- available_organisms$Scientific_Name

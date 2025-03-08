@@ -43,6 +43,8 @@ if (file.exists("files/Heatmap_annotation.csv")) {
 }
 
 
+heatmap_data[is.na(heatmap_data)] <- 0
+
 # then run
 # Check if 'ann_df' exists and has content before calling the function
 if (exists("ann_df") && !is.null(ann_df) && nrow(ann_df) > 0) {

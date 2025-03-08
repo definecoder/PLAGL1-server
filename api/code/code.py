@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 import os
 
+from core.consts import BASE_URL
+
 def z_score_normalize(df):
     """
     Normalize a DataFrame using Z-score normalization.
@@ -67,7 +69,7 @@ import os
 random_seed = 123
 
 # Function for visualization using dimensionality reduction (PCA, t-SNE, UMAP)
-def visualize_dimensionality_reduction(input_file, output_dir):
+def visualize_dimensionality_reduction(input_file, output_dir, user_info):
     try:
         # Read the input data
         df = pd.read_csv(input_file)
@@ -186,11 +188,13 @@ def visualize_dimensionality_reduction(input_file, output_dir):
 
         # Save the combined plots
         combined_png = os.path.join(output_dir, f"dimensionality_reduction_combined.png")
-        combined_pdf = os.path.join(output_dir, f"dimensionality_reduction_combined.png")
+        combined_pdf = os.path.join(output_dir, f"dimensionality_reduction_combined.pdf")
         plt.savefig(combined_png)
         plt.savefig(combined_pdf)
         plt.close()
 
+        combined_png =  f"{BASE_URL}/files/{user_info['user_id']}/dimensionality_reduction_combined.png"
+        combined_pdf =  f"{BASE_URL}/files/{user_info['user_id']}/dimensionality_reduction_combined.pdf"
         return {
             "message": "Dimensionality reduction visualizations created successfully.",
             "Combined": {"png": combined_png, "pdf": combined_pdf}
@@ -225,7 +229,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import os
 
-def plot_correlation_clustermap(input_file, output_dir, drop_column):
+def plot_correlation_clustermap(input_file, output_dir, drop_column, user_info):
     try:
         # Read the input data
         df = pd.read_csv(input_file)
@@ -273,12 +277,15 @@ def plot_correlation_clustermap(input_file, output_dir, drop_column):
         # Close the plot
         plt.close()
 
+        corr_csv = f"{BASE_URL}/files/{user_info['user_id']}/Highly_Correlated_Features.csv"
+        corr_pdf = f"{BASE_URL}/files/{user_info['user_id']}/Pearson_Correlation_Clustermap.pdf"
+        corr_png = f"{BASE_URL}/files/{user_info['user_id']}/Pearson_Correlation_Clustermap.png"
         return {
             "message": "Correlation clustermap created successfully.",
             "output_files": {
-                "correlation_csv": corr_csv_path,
-                "correlation_pdf": pdf_path,
-                "correlation_png": png_path
+                "correlation_csv": corr_csv,
+                "correlation_pdf": corr_pdf,
+                "correlation_png": corr_png
             }
         }
 
@@ -297,7 +304,7 @@ from sklearn.metrics import roc_auc_score
 import os
 import json
 
-def feature_selection_and_model(input_file, output_dir, feature_ratio):
+def feature_selection_and_model(input_file, output_dir, feature_ratio, user_info):
     try:
         # Load data
         df = pd.read_csv(input_file)
@@ -329,10 +336,11 @@ def feature_selection_and_model(input_file, output_dir, feature_ratio):
         cv_scores = cross_val_score(rf_model_reduced, X_selected[selected_features], y, cv=5, scoring='roc_auc')
 
         # Return results
+        selected_features_csv = f"{BASE_URL}/files/{user_info['user_id']}/selected_features.csv"
         result = {
             "message": "Feature selection and model training completed successfully.",
             "output_files": {
-                "selected_features_csv": selected_features_path
+                "selected_features_csv": selected_features_csv
             },
             "model_metrics": {
                 "cross_validation_auc": cv_scores.mean()
@@ -430,7 +438,7 @@ metrics = []
 roc_curves = {}
 pr_curves = {}
 
-def benchmark_models(input_file,output_dir):
+def benchmark_models(input_file,output_dir, user_info):
     global best_models  # Declare best_models as global to store results across API calls
     
 
@@ -597,12 +605,12 @@ def benchmark_models(input_file,output_dir):
         fig.savefig(pdf_path, dpi=300, bbox_inches='tight')
 
         # Show the combined figure
-        plt.show()
+        # plt.show()
 
-
+        metrics_csv = f"{BASE_URL}/files/{user_info['user_id']}/model_benchmarking_results.csv"
         return {
             "metrics": metrics_df.to_dict(orient="records"),
-            "metrics_path": metrics_path
+            "metrics_path": metrics_csv
         }
 
     except Exception as e:
@@ -614,7 +622,7 @@ def benchmark_models(input_file,output_dir):
 import pandas as pd
 import matplotlib.pyplot as plt
 
-def get_model_and_importance_with_top10(metrics_df, best_models, reduced_df, selected_model_name, output_dir, feature_names=None):
+def get_model_and_importance_with_top10(metrics_df, best_models, reduced_df, selected_model_name, output_dir,user_info, feature_names=None ):
     """
     Analyze feature importance for a selected model and extract top 10 features.
     """
@@ -680,6 +688,9 @@ def get_model_and_importance_with_top10(metrics_df, best_models, reduced_df, sel
     top10_path = f"{output_dir}/top10_features_{selected_model_name}.csv"
     top10_df.to_csv(top10_path, index=False)
 
+    top10_path = f"{BASE_URL}/files/{user_info['user_id']}/top10_features_{selected_model_name}.csv"
+    plot_path = f"{BASE_URL}/files/{user_info['user_id']}/top10_feature_importance_{selected_model_name}.png"
+
     return {
         "top10_features_path": top10_path,
         "top10_plot_path": plot_path,
@@ -701,7 +712,7 @@ from datetime import datetime
 random_seed = 123
 
 # Function for visualization using dimensionality reduction (PCA, t-SNE, UMAP)
-def visualize_dimensionality_reduction_feature(input_file, output_dir):
+def visualize_dimensionality_reduction_feature(input_file, output_dir, user_info):
     try:
         # Read the input data
         df = pd.read_csv(input_file)
@@ -827,6 +838,9 @@ def visualize_dimensionality_reduction_feature(input_file, output_dir):
         plt.savefig(combined_pdf)
         plt.close()
 
+        combined_png =  f"{BASE_URL}/files/{user_info['user_id']}/visualize_dimensions_10_feature_{timestamp}.png"
+        combined_pdf =  f"{BASE_URL}/files/{user_info['user_id']}/visualize_dimensions_10_feature_{timestamp}.pdf"
+
         return {
             "message": "Dimensionality reduction visualizations created successfully.",
             "Combined": {"png": combined_png, "pdf": combined_pdf}
@@ -849,7 +863,7 @@ from sklearn.model_selection import GridSearchCV, StratifiedKFold
 import matplotlib.pyplot as plt
 import os
 
-def rank_features(input_file, selected_model_name, param_grids, classifiers, output_dir):
+def rank_features(input_file, selected_model_name, param_grids, classifiers, output_dir, user_info):
     """
     Function to rank features based on individual model performance metrics and plot performance metrics.
     """
@@ -992,6 +1006,10 @@ def rank_features(input_file, selected_model_name, param_grids, classifiers, out
         plt.savefig(plot_pdf_path)
         plt.close()
 
+        plot_png_path = f"{BASE_URL}/files/{user_info['user_id']}/feature_performance_landscape_{selected_model_name}.png"
+        plot_pdf_path = f"{BASE_URL}/files/{user_info['user_id']}/feature_performance_landscape_{selected_model_name}.pdf"
+        output_file = f"{BASE_URL}/files/{user_info['user_id']}/feature_metrics_ranking.csv"
+
         return {
             "message": "Feature ranking and plotting completed successfully.",
             "ranking_file": output_file,
@@ -1014,7 +1032,7 @@ from sklearn.metrics import (
 import matplotlib.pyplot as plt
 import os
 
-def evaluate_model_with_features(input_file, selected_model, param_grids, classifiers, output_dir):
+def evaluate_model_with_features(input_file, selected_model, param_grids, classifiers, output_dir, user_info):
     """
     Function to evaluate models with varying numbers of top features and plot performance metrics.
     """
@@ -1151,11 +1169,15 @@ def evaluate_model_with_features(input_file, selected_model, param_grids, classi
         plt.savefig(plot_pdf)
         plt.close()
 
+        plot_png_path = f"{BASE_URL}/files/{user_info['user_id']}/performance_metrics_landscape.png"
+        plot_pdf_path = f"{BASE_URL}/files/{user_info['user_id']}/performance_metrics_landscape.pdf"
+        output_file = f"{BASE_URL}/files/{user_info['user_id']}/gene_subset_model_performance_cv.csv"
+
         return {
             "message": "Feature evaluation completed successfully.",
-            "metrics_file": metrics_csv,
-            "plot_png": plot_png,
-            "plot_pdf": plot_pdf,
+            "metrics_file": output_file,
+            "plot_png": plot_png_path,
+            "plot_pdf": plot_pdf_path,
             "metrics": metrics_df.to_dict(orient="records")
         }
 
@@ -1164,7 +1186,7 @@ def evaluate_model_with_features(input_file, selected_model, param_grids, classi
 
 
 # Function for visualization using dimensionality reduction (PCA, t-SNE, UMAP)
-def visualize_dimensionality_reduction_final(input_file, output_dir):
+def visualize_dimensionality_reduction_final(input_file, output_dir, user_info):
     try:
         # Read the input data
         df = pd.read_csv(input_file)
@@ -1290,6 +1312,9 @@ def visualize_dimensionality_reduction_final(input_file, output_dir):
         plt.savefig(combined_pdf)
         plt.close()
 
+        combined_png =  f"{BASE_URL}/files/{user_info['user_id']}/visualize_dimensions_final_{timestamp}.png"
+        combined_pdf =  f"{BASE_URL}/files/{user_info['user_id']}/visualize_dimensions_final_{timestamp}.pdf"
+
         return {
             "message": "Dimensionality reduction visualizations created successfully.",
             "Combined": {"png": combined_png, "pdf": combined_pdf}
@@ -1313,7 +1338,7 @@ from joblib import dump
 import matplotlib.pyplot as plt
 import os
 
-def evaluate_final_model(final_df_path, selected_model, param_grids, classifiers, output_dir):
+def evaluate_final_model(final_df_path, selected_model, param_grids, classifiers, output_dir, user_info):
     """
     Function to train, validate, and test the final model, and save results and plots.
     """
@@ -1421,6 +1446,12 @@ def evaluate_final_model(final_df_path, selected_model, param_grids, classifiers
         plt.savefig(cm_png, dpi=300, bbox_inches='tight')
         plt.close()
 
+        pr_roc_png_path = f"{BASE_URL}/files/{user_info['user_id']}/final_model_pr_roc_curves.png"
+        cm_png_path = f"{BASE_URL}/files/{user_info['user_id']}/final_model_confusion_matrix.png"
+        model_path = f"{BASE_URL}/files/{user_info['user_id']}/final_model.joblib"
+
+
+
         return {
             "message": "Final model evaluation completed successfully.",
             "train_metrics": {
@@ -1439,9 +1470,9 @@ def evaluate_final_model(final_df_path, selected_model, param_grids, classifiers
                 "Precision": test_precision,
                 "Recall": test_recall
             },
-            "model_path": model_filename,
-            "pr_roc_plot": pr_roc_png,
-            "confusion_matrix_plot": cm_png
+            "model_path": model_path,
+            "pr_roc_plot": pr_roc_png_path,
+            "confusion_matrix_plot": cm_png_path
         }
 
     except Exception as e:

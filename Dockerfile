@@ -1,43 +1,35 @@
-FROM python:latest
+FROM python:3.11-slim AS builder
 
-RUN apt-get update && apt-get install -y \
+
+# Install system dependencies
+RUN apt-get update -y && apt-get install -y \
     r-base \
     libcurl4-openssl-dev \
     libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# Set Bioconductor version based on R version
+RUN R -e "install.packages('BiocManager', repos='http://cran.us.r-project.org'); \
+    bioc_version <- ifelse(getRversion() >= '4.3', '3.18', '3.16'); \
+    BiocManager::install(version = bioc_version); \
+    BiocManager::install(c('WGCNA', 'DESeq2', 'limma', 'biomaRt', 'sva', 'STRINGdb')); \
+    install.packages(c('tidyverse', 'Rtsne', 'umap', 'ggplot2', \
+    'readr', 'ape', 'mice', 'dplyr', 'gplots', \
+    'ggVennDiagram', 'pheatmap', 'RColorBrewer', \
+    'stringr'), repos='http://cran.us.r-project.org', dependencies=TRUE);"
 
-# Install BiocManager
-RUN R -e "install.packages('BiocManager', repos='http://cran.us.r-project.org')"
-
-# RUN R -e "install.packages('BiocManager', repos='http://cran.rstudio.com/')"
-RUN R -e "BiocManager::install('limma')"
-
-# Install required CRAN packages
-RUN R -e "install.packages(c('readr', 'umap', 'ggplot2', 'Rtsne', 'ape'), repos='http://cran.us.r-project.org')"
-
-# Install Bioconductor packages using BiocManager
-RUN R -e "BiocManager::install(c('apeglm', 'impute', 'DESeq2', 'WGCNA'))"
-
-# Install CRAN packages
-RUN R -e "install.packages(c('here', 'umap', 'Rtsne'), repos='http://cran.us.r-project.org')"
-
-RUN R -e "install.packages(c('Matrix', 'fastcluster', 'dynamicTreeCut', 'flashClust'), repos='http://cran.us.r-project.org')"
-
-
-
+# Set working directory
 WORKDIR /code
 
+# Copy requirements and install Python dependencies
 COPY ./api/requirements.txt /code/requirements.txt
-
 RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
+# Copy application code
 COPY ./api /code/api
 
-
+# Expose FastAPI port
 EXPOSE 8000
 
-CMD ["fastapi", "dev", "api/main.py", "--host", "0.0.0.0", "--port", "8000"]
-
-# If running behind a proxy like Nginx or Traefik add --proxy-headers
-# CMD ["fastapi", "run", "app/main.py", "--port", "80", "--proxy-headers"]
+# Run FastAPI with Uvicorn
+CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]

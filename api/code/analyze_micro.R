@@ -11,19 +11,21 @@ source("../../micro_functions.R")
 
 load_and_install_libraries()
 
+count_data_subset <- readRDS("rds/count_data_subset.rds")
 count_data_subset_cc <- readRDS("rds/count_data_subset_cc.rds")
 sample_info <- readRDS("rds/sample_info.rds")
 count_data_normalized <- readRDS("rds/count_data_normalized.rds")
 
-plot_umap(count_data_subset_cc, sample_info, title = "UMAP Plot (Before Normalization)")
+# Umap
+plot_umap(count_data_subset, sample_info, title = "UMAP Plot (Before Normalization)")
 plot_umap(count_data_normalized, sample_info, title = "UMAP Plot (After Normalization)")
 
 # t-SNE
-plot_tsne(count_data_subset_cc, sample_info, title = "t-SNE Plot (Before Normalization)")
+plot_tsne(count_data_subset, sample_info, title = "t-SNE Plot (Before Normalization)")
 plot_tsne(count_data_normalized, sample_info, title = "t-SNE Plot (After Normalization)")
 
 # PCA
-plot_pca(count_data_subset_cc, sample_info, title = "PCA Plot (Before Normalization)")
+plot_pca(count_data_subset, sample_info, title = "PCA Plot (Before Normalization)")
 plot_pca(count_data_normalized, sample_info, title = "PCA Plot (After Normalization)")
 
 # Phylogenetic tree

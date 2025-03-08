@@ -12,7 +12,7 @@ id_type <- readRDS("rds/id_type.rds")
 csv_file_paths <- readRDS("rds/csv_file_paths.rds")
 
 
-ensembl_mart <- select_orgnsm("files/Organisms_name.csv", organism_name, id_type)
+ensembl_mart <- select_orgnsm("../../globals/Organisms_name.csv", organism_name, id_type)
 
 output_file_paths <- character(0)
 
