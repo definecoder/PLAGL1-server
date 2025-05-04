@@ -4,6 +4,10 @@ import os
 
 from core.consts import BASE_URL
 
+import matplotlib as mpl
+mpl.rcParams['pdf.fonttype'] = 42  # Ensures text is stored as text, not outlines
+mpl.rcParams['ps.fonttype'] = 42  # Same for PS files
+
 def z_score_normalize(df):
     """
     Normalize a DataFrame using Z-score normalization.
@@ -15,6 +19,7 @@ def z_score_normalize(df):
     normalized_df = (numeric_df - numeric_df.mean()) / numeric_df.std()
 
     return normalized_df
+
 
 
 def process_file(input_file, output_dir):
@@ -65,6 +70,12 @@ from sklearn.manifold import TSNE
 import umap.umap_ as umap  # Correct import
 import os
 
+import matplotlib as mpl
+
+# Font settings for vector files
+mpl.rcParams['pdf.fonttype'] = 42
+mpl.rcParams['ps.fonttype'] = 42
+
 # Set random seed for reproducibility
 random_seed = 123
 
@@ -95,7 +106,7 @@ def visualize_dimensionality_reduction(input_file, output_dir, user_info):
         pca_pdf = os.path.join(output_dir, "PCA_plot.pdf")
         plt.figure(figsize=(10, 6))
         sns.scatterplot(x='PCA1', y='PCA2', hue='condition', data=pca_df, palette='viridis')
-        plt.title('PCA of MPXV Data')
+        plt.title('PCA of Data')
         plt.xlabel('Principal Component 1')
         plt.ylabel('Principal Component 2')
         plt.grid()
@@ -123,7 +134,7 @@ def visualize_dimensionality_reduction(input_file, output_dir, user_info):
         tsne_pdf = os.path.join(output_dir, "tSNE_plot.pdf")
         plt.figure(figsize=(10, 6))
         sns.scatterplot(x='TSNE1', y='TSNE2', hue='condition', data=tsne_df, palette='viridis')
-        plt.title('t-SNE of MPXV Data')
+        plt.title('t-SNE of Data')
         plt.xlabel('t-SNE Component 1')
         plt.ylabel('t-SNE Component 2')
         plt.grid()
@@ -143,7 +154,7 @@ def visualize_dimensionality_reduction(input_file, output_dir, user_info):
         umap_pdf = os.path.join(output_dir, "UMAP_plot.pdf")
         plt.figure(figsize=(10, 6))
         sns.scatterplot(x='UMAP1', y='UMAP2', hue='condition', data=umap_df, palette='viridis')
-        plt.title('UMAP of MPXV Data')
+        plt.title('UMAP of Data')
         plt.xlabel('UMAP Component 1')
         plt.ylabel('UMAP Component 2')
         plt.grid()
@@ -187,14 +198,14 @@ def visualize_dimensionality_reduction(input_file, output_dir, user_info):
         plt.tight_layout()
 
         # Save the combined plots
-        combined_png = os.path.join(output_dir, f"dimensionality_reduction_combined.png")
-        combined_pdf = os.path.join(output_dir, f"dimensionality_reduction_combined.pdf")
+        combined_png = os.path.join(output_dir, f"dimensionality_reduction_combined_of_all_features.png")
+        combined_pdf = os.path.join(output_dir, f"dimensionality_reduction_combined_of_all_features.pdf")
         plt.savefig(combined_png)
         plt.savefig(combined_pdf)
         plt.close()
 
-        combined_png =  f"{BASE_URL}/files/{user_info['user_id']}/dimensionality_reduction_combined.png"
-        combined_pdf =  f"{BASE_URL}/files/{user_info['user_id']}/dimensionality_reduction_combined.pdf"
+        combined_png =  f"{BASE_URL}/files/{user_info['user_id']}/dimensionality_reduction_combined_of_all_features.png"
+        combined_pdf =  f"{BASE_URL}/files/{user_info['user_id']}/dimensionality_reduction_combined_of_all_features.pdf"
         return {
             "message": "Dimensionality reduction visualizations created successfully.",
             "Combined": {"png": combined_png, "pdf": combined_pdf}
@@ -296,13 +307,12 @@ def plot_correlation_clustermap(input_file, output_dir, drop_column, user_info):
         }
 
 
+import os
 import pandas as pd
+import json
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_selection import RFE
 from sklearn.model_selection import cross_val_score
-from sklearn.metrics import roc_auc_score
-import os
-import json
 
 def feature_selection_and_model(input_file, output_dir, feature_ratio, user_info):
     try:
@@ -312,30 +322,34 @@ def feature_selection_and_model(input_file, output_dir, feature_ratio, user_info
         # Ensure the output directory exists
         os.makedirs(output_dir, exist_ok=True)
 
-        # Split data
+        # Split data into features (X) and target (y)
         X = df.drop(columns=['condition'])
         y = df['condition']
 
-        # Apply RFE with RF
-        rf_model = RandomForestClassifier(random_state=123)
+        # Calculate the number of features to select based on the provided ratio
         num_features_to_select = int(X.shape[1] * feature_ratio)
+
+        # Initialize RFE with Random Forest as the estimator
+        rf_model = RandomForestClassifier(random_state=123)
         rfe = RFE(estimator=rf_model, n_features_to_select=num_features_to_select, step=1)
-        rfe.fit(X, y)
+        rfe.fit(X, y)  # Fit RFE to the data
 
-        # Select features
+        # Get selected feature names
         selected_features = X.columns[rfe.support_]
-        X_selected = X[selected_features].copy()  # Reduced dataset with selected features
-        X_selected['condition'] = y  # Add condition column back
 
-        # Save selected features list
+        # Create a new DataFrame with selected features
+        reduced_df = X[selected_features].copy()  # Retain only selected features
+        reduced_df['condition'] = y  # Add the target variable back
+
+        # Save the selected features and reduced DataFrame
         selected_features_path = os.path.join(output_dir, "selected_features.csv")
-        X_selected.to_csv(selected_features_path, index=False)
+        reduced_df.to_csv(selected_features_path, index=False)
 
-        # Train and evaluate
+        # Train and evaluate model using cross-validation (e.g., AUC score)
         rf_model_reduced = RandomForestClassifier(random_state=123)
-        cv_scores = cross_val_score(rf_model_reduced, X_selected[selected_features], y, cv=5, scoring='roc_auc')
+        cv_scores = cross_val_score(rf_model_reduced, reduced_df[selected_features], y, cv=5, scoring='roc_auc')
 
-        # Return results
+        # Prepare output
         selected_features_csv = f"{BASE_URL}/files/{user_info['user_id']}/selected_features.csv"
         result = {
             "message": "Feature selection and model training completed successfully.",
@@ -353,7 +367,6 @@ def feature_selection_and_model(input_file, output_dir, feature_ratio, user_info
             "message": "Error during feature selection and model training.",
             "error": str(e)
         })
-    
 
 
 
@@ -368,10 +381,6 @@ from sklearn.metrics import (
 from sklearn.model_selection import StratifiedKFold, cross_val_predict, GridSearchCV
 from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier, GradientBoostingClassifier, AdaBoostClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.svm import SVC
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
-from sklearn.naive_bayes import GaussianNB
-from sklearn.neighbors import KNeighborsClassifier
 from xgboost import XGBClassifier
 import os
 import numpy as np
@@ -387,11 +396,6 @@ classifiers = {
     'Random Forest': RandomForestClassifier(random_state=123),
     'XGBoost': XGBClassifier(eval_metric='logloss', random_state=123),
     'Gradient Boosting': GradientBoostingClassifier(random_state=123),
-    'SVM': SVC(probability=True, random_state=123),
-    'LDA': LinearDiscriminantAnalysis(),
-    'QDA': QuadraticDiscriminantAnalysis(),
-    'Naive Bayes': GaussianNB(),
-    'K Neighbors': KNeighborsClassifier(),
     'AdaBoost': AdaBoostClassifier(algorithm='SAMME', random_state=123)
 }
 
@@ -419,10 +423,6 @@ param_grids = {
         'n_estimators': [50, 100, 200],
         'learning_rate': [0.01, 0.1, 0.2],
         'max_depth': [3, 5, 7]
-    },
-    'K Neighbors': {
-        'n_neighbors': [3, 5, 7, 9],
-        'weights': ['uniform', 'distance']
     },
     'AdaBoost': {
         'n_estimators': [50, 100, 200],
@@ -469,17 +469,28 @@ def benchmark_models(input_file,output_dir, user_info):
             roc_curves[name] = (fpr, tpr)
             pr_curves[name] = (precision, recall)
 
-            # Optimize threshold for F1-score
+            # Optimal threshold for F1
             thresholds = np.arange(0, 1, 0.01)
             best_f1, best_threshold = max(
                 (f1_score(y, (y_pred_proba_original > t).astype(int)), t) for t in thresholds
             )
             y_pred = (y_pred_proba_original > best_threshold).astype(int)
+
+            # Confusion matrix to derive specificity
+            tn, fp, fn, tp = confusion_matrix(y, y_pred).ravel()
+            specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
+
+            # Other metrics
             accuracy = accuracy_score(y, y_pred)
             precision_at_threshold = precision_score(y, y_pred)
             recall_at_threshold = recall_score(y, y_pred)
+            mcc = matthews_corrcoef(y, y_pred)
+            balanced_acc = balanced_accuracy_score(y, y_pred)
+            kappa = cohen_kappa_score(y, y_pred)
+            logloss = log_loss(y, y_pred_proba_original)
 
-            # Evaluate tuned model if hyperparameter grid exists
+
+            # Optional tuning
             if name in param_grids:
                 grid_search = GridSearchCV(
                     model, param_grids[name], cv=cv, scoring='roc_auc', n_jobs=-1
@@ -494,7 +505,6 @@ def benchmark_models(input_file,output_dir, user_info):
                 tuned_auc = roc_auc_score(y, y_pred_proba_tuned)
                 tuned_auprc = average_precision_score(y, y_pred_proba_tuned)
 
-                # Choose the better model
                 if tuned_auc > original_auc:
                     best_model = tuned_model
                     best_auc = tuned_auc
@@ -515,18 +525,23 @@ def benchmark_models(input_file,output_dir, user_info):
                 best_auprc = original_auprc
                 print(f"{name}: No hyperparameter tuning. Original model AUROC: {original_auc:.4f}, AUPRC: {original_auprc:.4f}")
 
-            # Store the best model and metrics
             best_models[name] = best_model
 
-            # Store metrics
+            # Store all metrics
             metrics.append({
                 'Model': name,
-                'AUPRC': best_auprc,
                 'AUROC': best_auc,
+                'AUPRC': best_auprc,
+                'Accuracy': accuracy,
                 'Precision': precision_at_threshold,
                 'Recall': recall_at_threshold,
+                'Specificity': specificity,
                 'F1-Score': best_f1,
-                'Accuracy': accuracy,
+                'Balanced Accuracy': balanced_acc,
+                'MCC': mcc,
+                'Kappa': kappa,
+                'Log Loss': logloss,
+                'Optimal Threshold': best_threshold
             })
         # Convert metrics to a DataFrame
         metrics_df = pd.DataFrame(metrics)
@@ -622,7 +637,13 @@ def benchmark_models(input_file,output_dir, user_info):
 import pandas as pd
 import matplotlib.pyplot as plt
 
-def get_model_and_importance_with_top10(metrics_df, best_models, reduced_df, selected_model_name, output_dir,user_info, feature_names=None ):
+import os
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+def get_model_and_importance_with_top10(metrics_df, best_models, reduced_df, selected_model_name, output_dir, user_info, feature_names=None):
     """
     Analyze feature importance for a selected model and extract top 10 features.
     """
@@ -634,60 +655,73 @@ def get_model_and_importance_with_top10(metrics_df, best_models, reduced_df, sel
     selected_model = best_models[selected_model_name]
     print(f"\nAnalyzing feature importance for model: {selected_model_name}")
 
+    # Prepare features and labels
+    if 'condition' not in reduced_df.columns:
+        raise ValueError("'condition' column is missing in the dataset.")
+    X = reduced_df.drop(columns=['condition'])
+    y = reduced_df['condition']
+
+    # Fit the model on the full dataset
+    selected_model.fit(X, y)
+
     # Handle feature names
     if feature_names is None:
-        feature_names = reduced_df.drop(columns=['condition']).columns.tolist()
+        feature_names = X.columns.tolist()
 
     # Compute feature importance
     if hasattr(selected_model, "feature_importances_"):
         # Tree-based models
         importance_scores = selected_model.feature_importances_
-        importance_df = pd.DataFrame({
-            'Feature': feature_names,
-            'Importance': importance_scores
-        }).sort_values(by='Importance', ascending=False)
-
     elif hasattr(selected_model, "coef_"):
         # Linear models
-        coef_scores = selected_model.coef_.flatten()
-        importance_df = pd.DataFrame({
-            'Feature': feature_names,
-            'Importance': coef_scores
-        }).sort_values(by='Importance', ascending=False)
-
+        importance_scores = np.abs(selected_model.coef_.flatten())  # Take absolute value
     else:
         raise ValueError(f"Model '{selected_model_name}' does not support feature importance or coefficients.")
+
+    importance_df = pd.DataFrame({
+        'Feature': feature_names,
+        'Importance': importance_scores
+    }).sort_values(by='Importance', ascending=False)
 
     # Select top 10 features
     top10_features = importance_df.head(10)
     print("\nTop 10 Feature Importance Scores:")
     print(top10_features)
 
-    # Plot top 10 feature importance
-    plt.figure(figsize=(8, 5))
-    plt.barh(top10_features['Feature'], top10_features['Importance'], color='skyblue', align='center')
-    plt.gca().invert_yaxis()
+    # Plot top 10 feature importance using seaborn
+    plt.figure(figsize=(10, 6))
+    sns.barplot(
+        x='Importance',
+        y='Feature',
+        data=top10_features,
+        hue='Feature',
+        palette='viridis',
+        dodge=False,
+        legend=False
+    )
     plt.title(f"Top 10 Feature Importance for {selected_model_name}")
     plt.xlabel('Importance Score')
     plt.ylabel('Feature')
     plt.tight_layout()
 
     # Save the plot
-    plot_path = f"{output_dir}/top10_feature_importance_{selected_model_name}.png"
-    plt.savefig(plot_path)
+    user_folder = f"{output_dir}/files/{user_info['user_id']}"
+    os.makedirs(user_folder, exist_ok=True)
+
+    plot_path = f"{user_folder}/top10_feature_importance_{selected_model_name}.png"
+    plt.savefig(plot_path, dpi=300, bbox_inches='tight')
     plt.close()
 
     # Extract the top 10 features from the reduced DataFrame
     top10_feature_names = top10_features['Feature'].tolist()
-
-    # Include the 'condition' column along with the top 10 features
     columns_to_include = top10_feature_names + ['condition']
     top10_df = reduced_df[columns_to_include]
 
     # Save the top 10 DataFrame
-    top10_path = f"{output_dir}/top10_features_{selected_model_name}.csv"
+    top10_path = f"{user_folder}/top10_features_{selected_model_name}.csv"
     top10_df.to_csv(top10_path, index=False)
 
+    # Adjust URLs for public return
     top10_path = f"{BASE_URL}/files/{user_info['user_id']}/top10_features_{selected_model_name}.csv"
     plot_path = f"{BASE_URL}/files/{user_info['user_id']}/top10_feature_importance_{selected_model_name}.png"
 
@@ -738,7 +772,7 @@ def visualize_dimensionality_reduction_feature(input_file, output_dir, user_info
         pca_pdf = os.path.join(output_dir, "PCA_plot.pdf")
         plt.figure(figsize=(10, 6))
         sns.scatterplot(x='PCA1', y='PCA2', hue='condition', data=pca_df, palette='viridis')
-        plt.title('PCA of MPXV Data')
+        plt.title('PCA of Data')
         plt.xlabel('Principal Component 1')
         plt.ylabel('Principal Component 2')
         plt.grid()
@@ -766,7 +800,7 @@ def visualize_dimensionality_reduction_feature(input_file, output_dir, user_info
         tsne_pdf = os.path.join(output_dir, "tSNE_plot.pdf")
         plt.figure(figsize=(10, 6))
         sns.scatterplot(x='TSNE1', y='TSNE2', hue='condition', data=tsne_df, palette='viridis')
-        plt.title('t-SNE of MPXV Data')
+        plt.title('t-SNE of Data')
         plt.xlabel('t-SNE Component 1')
         plt.ylabel('t-SNE Component 2')
         plt.grid()
@@ -786,7 +820,7 @@ def visualize_dimensionality_reduction_feature(input_file, output_dir, user_info
         umap_pdf = os.path.join(output_dir, "UMAP_plot.pdf")
         plt.figure(figsize=(10, 6))
         sns.scatterplot(x='UMAP1', y='UMAP2', hue='condition', data=umap_df, palette='viridis')
-        plt.title('UMAP of MPXV Data')
+        plt.title('UMAP of Data')
         plt.xlabel('UMAP Component 1')
         plt.ylabel('UMAP Component 2')
         plt.grid()
@@ -854,16 +888,18 @@ def visualize_dimensionality_reduction_feature(input_file, output_dir, user_info
 
 
 
+import os
 import pandas as pd
+import json
 from sklearn.metrics import (
     roc_auc_score, precision_recall_curve, average_precision_score,
-    f1_score, accuracy_score, roc_curve, precision_score, recall_score
+    f1_score, accuracy_score, precision_score, recall_score,
+    matthews_corrcoef, log_loss, confusion_matrix
 )
-from sklearn.model_selection import GridSearchCV, StratifiedKFold
+from sklearn.model_selection import StratifiedKFold, GridSearchCV, cross_val_predict
 import matplotlib.pyplot as plt
-import os
 
-def rank_features(input_file, selected_model_name, param_grids, classifiers, output_dir, user_info):
+def rank_features(input_file, selected_model, param_grids, classifiers, output_dir, user_info):
     """
     Function to rank features based on individual model performance metrics and plot performance metrics.
     """
@@ -878,31 +914,29 @@ def rank_features(input_file, selected_model_name, param_grids, classifiers, out
         # Prepare data
         X = df.drop(columns=['condition'])  # Feature data
         y = df['condition']  # Target variable
-        top10_features = X.columns.tolist()
 
         # Initialize Stratified Cross-Validation
         cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=123)
 
         # Hyperparameter grid for the selected model
-        if selected_model_name not in param_grids:
-            raise ValueError(f"Parameter grid not found for the model: {selected_model_name}")
-        param_grid = param_grids[selected_model_name]
+        if selected_model not in param_grids:
+            raise ValueError(f"Parameter grid not found for the model: {selected_model}")
+        param_grid = param_grids[selected_model]
 
-        if selected_model_name not in classifiers:
-            raise ValueError(f"Classifier not found for the model: {selected_model_name}")
-        model = classifiers[selected_model_name]
+        if selected_model not in classifiers:
+            raise ValueError(f"Classifier not found for the model: {selected_model}")
+        model = classifiers[selected_model]
 
         # Store results for metrics
         metrics_scores = []
         roc_auc_scores = {}
         predictions = {}
-        auprc_scores = {}
 
-        # Rank features individually
-        for feature in top10_features:
+        # Loop through features for individual modeling and tuning
+        for feature in X.columns.difference(['condition']):  # Loop through all features except 'condition'
             print(f"Processing feature: {feature}")
 
-            # Prepare data for the single feature
+            # Prepare single feature data
             X_single = X[[feature]]  # Select only the current feature
 
             # Perform GridSearchCV for hyperparameter tuning
@@ -915,7 +949,7 @@ def rank_features(input_file, selected_model_name, param_grids, classifiers, out
             # Perform cross-validation to get prediction probabilities
             y_pred_proba = cross_val_predict(
                 best_model, X_single, y, cv=cv, method='predict_proba', n_jobs=-1
-            )[:, 1]
+            )[:, 1]  # Use the probability for the positive class (class 1)
 
             # Perform cross-validation to get predictions
             y_pred = cross_val_predict(best_model, X_single, y, cv=cv, method='predict', n_jobs=-1)
@@ -926,11 +960,12 @@ def rank_features(input_file, selected_model_name, param_grids, classifiers, out
             auprc = average_precision_score(y, y_pred_proba)
             f1 = f1_score(y, y_pred)
             accuracy = accuracy_score(y, y_pred)
+            mcc = matthews_corrcoef(y, y_pred)  # Matthews Correlation Coefficient
+            logloss = log_loss(y, y_pred_proba)  # Log Loss
 
-            # Store Precision-Recall and ROC metrics
+            # Store the results
             roc_auc_scores[feature] = roc_auc
             predictions[feature] = y_pred_proba
-            auprc_scores[feature] = auprc
 
             # Calculate Precision and Recall at the default threshold (0.5)
             precision_at_threshold = precision_score(y, y_pred)
@@ -944,26 +979,33 @@ def rank_features(input_file, selected_model_name, param_grids, classifiers, out
                 'Precision': precision_at_threshold,
                 'Recall': recall_at_threshold,
                 'F1-Score': f1,
-                'Accuracy': accuracy
+                'Accuracy': accuracy,
+                'MCC': mcc,
+                'LogLoss': logloss
             })
 
-        # Convert metrics to a DataFrame
+        # Convert metrics to a DataFrame for analysis
         metrics_df = pd.DataFrame(metrics_scores)
 
-        # Sort features based on the primary metric in descending order
+        # Sort features based on the primary metric (AUPRC) in descending order
         metrics_df.sort_values(by='AUPRC', ascending=False, inplace=True)
 
         # Save the sorted results to a CSV file
-        output_file = os.path.join(output_dir, f'feature_metrics_ranking.csv')
+        output_file = os.path.join(output_dir, 'single_feature_metrics_ranking.csv')
         metrics_df.to_csv(output_file, index=False)
 
         # Plot Precision-Recall Curves (AUPRC) and ROC Curves (AUROC)
         fig, axes = plt.subplots(1, 2, figsize=(15, 6))  # Adjust width and height for landscape view
 
         # --- Precision-Recall Curves (AUPRC) ---
-        # Sort features by AUPRC score in descending order
-        sorted_auprc_features = sorted(auprc_scores.items(), key=lambda x: x[1], reverse=True)
+        auprc_scores = {}
+        for feature in X.columns.difference(['condition']):
+            y_pred_proba_cv = predictions[feature]
+            precision, recall, _ = precision_recall_curve(y, y_pred_proba_cv)
+            auprc = average_precision_score(y, y_pred_proba_cv)
+            auprc_scores[feature] = auprc
 
+        sorted_auprc_features = sorted(auprc_scores.items(), key=lambda x: x[1], reverse=True)
         for feature, auprc in sorted_auprc_features:
             y_pred_proba_cv = predictions[feature]
             precision, recall, _ = precision_recall_curve(y, y_pred_proba_cv)
@@ -977,14 +1019,11 @@ def rank_features(input_file, selected_model_name, param_grids, classifiers, out
         axes[0].legend(loc='lower left', fontsize=8, frameon=False)
 
         # --- ROC Curves (AUROC) ---
-        # Sort features by ROC AUC score in descending order
         sorted_features = sorted(roc_auc_scores.items(), key=lambda x: x[1], reverse=True)
-
         for feature, auc_score in sorted_features:
             fpr, tpr, _ = roc_curve(y, predictions[feature])
             axes[1].plot(fpr, tpr, lw=1.75, label=f'{feature} (AUROC = {auc_score:.2f})')
 
-        # Plot diagonal line for random chance in ROC subplot
         axes[1].plot([0, 1], [0, 1], 'k--', label='Random Chance')
         axes[1].set_title('ROC Curves for Individual Features')
         axes[1].set_xlabel('False Positive Rate')
@@ -993,41 +1032,42 @@ def rank_features(input_file, selected_model_name, param_grids, classifiers, out
         axes[1].set_ylim([0.0, 1.05])
         axes[1].legend(loc='lower right', fontsize=8, frameon=False)
 
-        # Add a main title for the figure
         fig.suptitle('Performance Metrics for Individual Features', fontsize=16, y=1)
-
-        # Adjust layout for landscape view
         plt.tight_layout(rect=[0, 0, 1, 0.95])  # Adjust for spacing and main title
 
         # Save the figure
-        plot_png_path = os.path.join(output_dir, f'feature_performance_landscape_{selected_model_name}.png')
-        plot_pdf_path = os.path.join(output_dir, f'feature_performance_landscape_{selected_model_name}.pdf')
+        plot_png_path = os.path.join(output_dir, 'single_feature_model_performance_landscape.png')
+        plot_pdf_path = os.path.join(output_dir, 'single_feature_model_performance_landscape.pdf')
         plt.savefig(plot_png_path, dpi=300, bbox_inches='tight')
         plt.savefig(plot_pdf_path)
         plt.close()
 
-        plot_png_path = f"{BASE_URL}/files/{user_info['user_id']}/feature_performance_landscape_{selected_model_name}.png"
-        plot_pdf_path = f"{BASE_URL}/files/{user_info['user_id']}/feature_performance_landscape_{selected_model_name}.pdf"
-        output_file = f"{BASE_URL}/files/{user_info['user_id']}/feature_metrics_ranking.csv"
+        # Prepare the output file paths for user
+        plot_png_path = f"{BASE_URL}/files/{user_info['user_id']}/single_feature_model_performance_landscape.png"
+        plot_pdf_path = f"{BASE_URL}/files/{user_info['user_id']}/single_feature_model_performance_landscape.pdf"
+        output_file = f"{BASE_URL}/files/{user_info['user_id']}/single_feature_metrics_ranking.csv"
 
-        return {
+        return json.dumps({
             "message": "Feature ranking and plotting completed successfully.",
             "ranking_file": output_file,
             "plot_png": plot_png_path,
             "plot_pdf": plot_pdf_path,
             "metrics": metrics_df.to_dict(orient="records")
-        }
+        })
 
     except Exception as e:
-        return {"message": "Error during feature ranking and plotting.", "error": str(e)}
-
+        return json.dumps({
+            "message": "Error during feature ranking and plotting.",
+            "error": str(e)
+        })
 
 
 import pandas as pd
 from sklearn.model_selection import StratifiedKFold, GridSearchCV, cross_val_predict
 from sklearn.metrics import (
     roc_auc_score, average_precision_score, accuracy_score, f1_score,
-    roc_curve, precision_recall_curve, precision_score, recall_score
+    roc_curve, precision_recall_curve, auc, precision_score, recall_score,
+    matthews_corrcoef, log_loss
 )
 import matplotlib.pyplot as plt
 import os
@@ -1035,6 +1075,7 @@ import os
 def evaluate_model_with_features(input_file, selected_model, param_grids, classifiers, output_dir, user_info):
     """
     Function to evaluate models with varying numbers of top features and plot performance metrics.
+    New metrics added: MCC and Log Loss.
     """
     try:
         # Load the dataset
@@ -1090,6 +1131,8 @@ def evaluate_model_with_features(input_file, selected_model, param_grids, classi
             accuracy = accuracy_score(y, y_pred)
             precision = precision_score(y, y_pred)
             recall = recall_score(y, y_pred)
+            mcc = matthews_corrcoef(y, y_pred)  # Adding MCC
+            logloss = log_loss(y, y_pred_proba)  # Adding Log Loss
 
             # Store ROC and Precision-Recall curves
             fpr, tpr, _ = roc_curve(y, y_pred_proba)
@@ -1105,7 +1148,9 @@ def evaluate_model_with_features(input_file, selected_model, param_grids, classi
                 'F1 Score': f1,
                 'Accuracy': accuracy,
                 'Precision': precision,
-                'Recall': recall
+                'Recall': recall,
+                'MCC': mcc,  # Adding MCC
+                'Log Loss': logloss  # Adding Log Loss
             })
 
         # Save performance metrics to a CSV file
@@ -1113,7 +1158,8 @@ def evaluate_model_with_features(input_file, selected_model, param_grids, classi
         metrics_df.sort_values(by='AUPRC', ascending=False, inplace=True)
         metrics_csv = os.path.join(output_dir, 'gene_subset_model_performance_cv.csv')
         metrics_df.to_csv(metrics_csv, index=False)
-         # Ensure that Precision-Recall curves are computed
+
+        # Ensure that Precision-Recall curves are computed
         if not pr_curves:
             raise ValueError("pr_curves is empty. Ensure the Precision-Recall curves are computed before selecting features.")
 
@@ -1212,7 +1258,7 @@ def visualize_dimensionality_reduction_final(input_file, output_dir, user_info):
         pca_pdf = os.path.join(output_dir, "PCA_plot_final.pdf")
         plt.figure(figsize=(10, 6))
         sns.scatterplot(x='PCA1', y='PCA2', hue='condition', data=pca_df, palette='viridis')
-        plt.title('PCA of MPXV Data')
+        plt.title('PCA of Data')
         plt.xlabel('Principal Component 1')
         plt.ylabel('Principal Component 2')
         plt.grid()
@@ -1240,7 +1286,7 @@ def visualize_dimensionality_reduction_final(input_file, output_dir, user_info):
         tsne_pdf = os.path.join(output_dir, "tSNE_plot_final.pdf")
         plt.figure(figsize=(10, 6))
         sns.scatterplot(x='TSNE1', y='TSNE2', hue='condition', data=tsne_df, palette='viridis')
-        plt.title('t-SNE of MPXV Data')
+        plt.title('t-SNE of Data')
         plt.xlabel('t-SNE Component 1')
         plt.ylabel('t-SNE Component 2')
         plt.grid()
@@ -1260,7 +1306,7 @@ def visualize_dimensionality_reduction_final(input_file, output_dir, user_info):
         umap_pdf = os.path.join(output_dir, "UMAP_plot_final.pdf")
         plt.figure(figsize=(10, 6))
         sns.scatterplot(x='UMAP1', y='UMAP2', hue='condition', data=umap_df, palette='viridis')
-        plt.title('UMAP of MPXV Data')
+        plt.title('UMAP of Data')
         plt.xlabel('UMAP Component 1')
         plt.ylabel('UMAP Component 2')
         plt.grid()
@@ -1299,21 +1345,18 @@ def visualize_dimensionality_reduction_final(input_file, output_dir, user_info):
         axes[2].set_ylabel('UMAP Component 2')
         axes[2].legend(title='Condition')
 
-        # Generate a unique timestamp
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
         # Adjust layout
         plt.tight_layout()
 
         # Save the combined plots
-        combined_png = os.path.join(output_dir, f"visualize_dimensions_final_{timestamp}.png")
-        combined_pdf = os.path.join(output_dir, f"visualize_dimensions_final_{timestamp}.pdf")
+        combined_png = os.path.join(output_dir, f"visualize_dimensions_final_model.png")
+        combined_pdf = os.path.join(output_dir, f"visualize_dimensions_final_model.pdf")
         plt.savefig(combined_png)
         plt.savefig(combined_pdf)
         plt.close()
 
-        combined_png =  f"{BASE_URL}/files/{user_info['user_id']}/visualize_dimensions_final_{timestamp}.png"
-        combined_pdf =  f"{BASE_URL}/files/{user_info['user_id']}/visualize_dimensions_final_{timestamp}.pdf"
+        combined_png =  f"{BASE_URL}/files/{user_info['user_id']}/visualize_dimensions_final_model.png"
+        combined_pdf =  f"{BASE_URL}/files/{user_info['user_id']}/visualize_dimensions_final_model.pdf"
 
         return {
             "message": "Dimensionality reduction visualizations created successfully.",
