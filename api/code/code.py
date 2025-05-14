@@ -194,8 +194,10 @@ def visualize_dimensionality_reduction(input_file, output_dir, user_info):
         axes[2].legend(title='Condition')
 
 
-        # Adjust layout
-        plt.tight_layout()
+        # Add suptitle and adjust layout
+        plt.suptitle("Dimensionality Reduction of All Features", fontsize=18, y=1.02)
+        plt.tight_layout(rect=[0, 0, 1, 0.98])
+
 
         # Save the combined plots
         combined_png = os.path.join(output_dir, f"dimensionality_reduction_combined_of_all_features.png")
@@ -607,7 +609,7 @@ def benchmark_models(input_file,output_dir, user_info):
 
 
         # Add a main title for the figure
-        fig.suptitle('Model Benchmarking: AUPRC and AUROC', fontsize=16, y=1)
+        fig.suptitle('AUPRC and AUROC-Based Benchmarking of ML Classification Models', fontsize=16, y=1)
 
         # Adjust layout for landscape orientation
         plt.tight_layout(rect=[0, 0, 1, 0.95])
@@ -859,21 +861,19 @@ def visualize_dimensionality_reduction_feature(input_file, output_dir, user_info
         axes[2].set_ylabel('UMAP Component 2')
         axes[2].legend(title='Condition')
 
-        # Generate a unique timestamp
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-        # Adjust layout
-        plt.tight_layout()
+        # Add suptitle and adjust layout
+        plt.suptitle("Dimensionality Reduction of Top 10 features", fontsize=18, y=1.02)
+        plt.tight_layout(rect=[0, 0, 1, 0.98])
 
         # Save the combined plots
-        combined_png = os.path.join(output_dir, f"visualize_dimensions_10_feature_{timestamp}.png")
-        combined_pdf = os.path.join(output_dir, f"visualize_dimensions_10_feature_{timestamp}.pdf")
+        combined_png = os.path.join(output_dir, f"visualize_dimensions_10_feature.png")
+        combined_pdf = os.path.join(output_dir, f"visualize_dimensions_10_feature.pdf")
         plt.savefig(combined_png)
         plt.savefig(combined_pdf)
         plt.close()
 
-        combined_png =  f"{BASE_URL}/files/{user_info['user_id']}/visualize_dimensions_10_feature_{timestamp}.png"
-        combined_pdf =  f"{BASE_URL}/files/{user_info['user_id']}/visualize_dimensions_10_feature_{timestamp}.pdf"
+        combined_png =  f"{BASE_URL}/files/{user_info['user_id']}/visualize_dimensions_10_feature.png"
+        combined_pdf =  f"{BASE_URL}/files/{user_info['user_id']}/visualize_dimensions_10_feature.pdf"
 
         return {
             "message": "Dimensionality reduction visualizations created successfully.",
@@ -1032,7 +1032,7 @@ def rank_features(input_file, selected_model, param_grids, classifiers, output_d
         axes[1].set_ylim([0.0, 1.05])
         axes[1].legend(loc='lower right', fontsize=8, frameon=False)
 
-        fig.suptitle('Performance Metrics for Individual Features', fontsize=16, y=1)
+        fig.suptitle('Performance of Single-Gene Models', fontsize=16, y=1)
         plt.tight_layout(rect=[0, 0, 1, 0.95])  # Adjust for spacing and main title
 
         # Save the figure
@@ -1205,7 +1205,7 @@ def evaluate_model_with_features(input_file, selected_model, param_grids, classi
         axes[1].legend(loc='lower right', fontsize=9, frameon=False)
 
         # Add a main title for the figure
-        fig.suptitle('Performance Metrics with Varying Number of Features', fontsize=16, y=1)
+        fig.suptitle('Performance of the Gene Models', fontsize=16, y=1)
         plt.tight_layout(rect=[0, 0, 1, 0.95])
 
         # Save the plots
@@ -1345,8 +1345,9 @@ def visualize_dimensionality_reduction_final(input_file, output_dir, user_info):
         axes[2].set_ylabel('UMAP Component 2')
         axes[2].legend(title='Condition')
 
-        # Adjust layout
-        plt.tight_layout()
+        # Add suptitle and adjust layout
+        plt.suptitle("Dimensionality Reduction of Final Model", fontsize=18, y=1.02)
+        plt.tight_layout(rect=[0, 0, 1, 0.98])
 
         # Save the combined plots
         combined_png = os.path.join(output_dir, f"visualize_dimensions_final_model.png")
@@ -1472,7 +1473,7 @@ def evaluate_final_model(final_df_path, selected_model, param_grids, classifiers
         axes[1].set_xlabel('False Positive Rate')
         axes[1].set_ylabel('True Positive Rate')
         axes[1].legend(loc='lower right')
-        fig.suptitle('Performance of the Final Model', fontsize=16, y=1)
+        fig.suptitle('Performance of the Final Model: Train vs Test', fontsize=16, y=1)
         plt.tight_layout(rect=[0, 0, 1, 0.95])
 
         # Save the plots
@@ -1486,6 +1487,7 @@ def evaluate_final_model(final_df_path, selected_model, param_grids, classifiers
         cm_png = os.path.join(output_dir, 'final_model_confusion_matrix.png')
         disp.plot(cmap='Blues', values_format='d')
         plt.title("Confusion Matrix")
+        plt.suptitle("Performance of the Final Model: Confusion Matrix", fontsize=16, y=1.02)  # Add this line
         plt.savefig(cm_png, dpi=300, bbox_inches='tight')
         plt.close()
 
