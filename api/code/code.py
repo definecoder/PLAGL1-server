@@ -45,7 +45,7 @@ def process_file(input_file, output_dir):
         main_df_norm['condition'] = main_df['condition']
 
         # Define output file paths
-        normalized_file = os.path.join(output_dir, "z_score_normalized_data.csv")
+        normalized_file = os.path.join(output_dir, "z_score_normalized_data_of_ML_DF.csv")
         
         # Save normalized data
         main_df_norm.to_csv(normalized_file, index=False)
@@ -282,8 +282,8 @@ def plot_correlation_clustermap(input_file, output_dir, drop_column, user_info):
         # plt.suptitle('Pearson Correlation Clustermap', fontsize=16)
 
         # Save the plot as a PDF and PNG file
-        pdf_path = os.path.join(output_dir, 'Pearson_Correlation_Clustermap.pdf')
-        png_path = os.path.join(output_dir, 'Pearson_Correlation_Clustermap.png')
+        pdf_path = os.path.join(output_dir, 'Pearson_Correlation_Clustermap_of_All_Features.pdf')
+        png_path = os.path.join(output_dir, 'Pearson_Correlation_Clustermap_of_All_Features.png')
         clustermap.savefig(pdf_path)
         clustermap.savefig(png_path)
 
@@ -344,7 +344,7 @@ def feature_selection_and_model(input_file, output_dir, feature_ratio, user_info
         reduced_df['condition'] = y  # Add the target variable back
 
         # Save the selected features and reduced DataFrame
-        selected_features_path = os.path.join(output_dir, "selected_features.csv")
+        selected_features_path = os.path.join(output_dir, "selected_features_RFE_RF.csv")
         reduced_df.to_csv(selected_features_path, index=False)
 
         # Train and evaluate model using cross-validation (e.g., AUC score)
@@ -352,7 +352,7 @@ def feature_selection_and_model(input_file, output_dir, feature_ratio, user_info
         cv_scores = cross_val_score(rf_model_reduced, reduced_df[selected_features], y, cv=5, scoring='roc_auc')
 
         # Prepare output
-        selected_features_csv = f"{BASE_URL}/files/{user_info['user_id']}/selected_features.csv"
+        selected_features_csv = f"{BASE_URL}/files/{user_info['user_id']}/selected_features_RFE_RF.csv"
         result = {
             "message": "Feature selection and model training completed successfully.",
             "output_files": {
@@ -549,7 +549,7 @@ def benchmark_models(input_file,output_dir, user_info):
         metrics_df = pd.DataFrame(metrics)
         metrics_df = metrics_df.sort_values(by=['AUPRC'], ascending=False).reset_index(drop=True)
          # Save metrics as CSV
-        metrics_path = os.path.join(output_dir, "model_benchmarking_results.csv")
+        metrics_path = os.path.join(output_dir, "ML_models_benchmarking_results.csv")
         metrics_df.to_csv(metrics_path, index=False)
        
         # Debug: Log what is being returned
@@ -616,15 +616,15 @@ def benchmark_models(input_file,output_dir, user_info):
 
         # Save the figure
          # Save the figure
-        png_path = os.path.join(output_dir, 'model_benchmarking_curves.png')
-        pdf_path = os.path.join(output_dir, 'model_benchmarking_curves.pdf')
+        png_path = os.path.join(output_dir, 'ML_models_benchmarking_curves.png')
+        pdf_path = os.path.join(output_dir, 'ML_models_benchmarking_curves.pdf')
         fig.savefig(png_path, dpi=300, bbox_inches='tight')
         fig.savefig(pdf_path, dpi=300, bbox_inches='tight')
 
         # Show the combined figure
         # plt.show()
 
-        metrics_csv = f"{BASE_URL}/files/{user_info['user_id']}/model_benchmarking_results.csv"
+        metrics_csv = f"{BASE_URL}/files/{user_info['user_id']}/ML_models_benchmarking_results.csv"
         return {
             "metrics": metrics_df.to_dict(orient="records"),
             "metrics_path": metrics_csv
@@ -866,14 +866,14 @@ def visualize_dimensionality_reduction_feature(input_file, output_dir, user_info
         plt.tight_layout(rect=[0, 0, 1, 0.98])
 
         # Save the combined plots
-        combined_png = os.path.join(output_dir, f"visualize_dimensions_10_feature.png")
-        combined_pdf = os.path.join(output_dir, f"visualize_dimensions_10_feature.pdf")
+        combined_png = os.path.join(output_dir, f"visualize_dimensions_Top_10_features.png")
+        combined_pdf = os.path.join(output_dir, f"visualize_dimensions_Top_10_features.pdf")
         plt.savefig(combined_png)
         plt.savefig(combined_pdf)
         plt.close()
 
-        combined_png =  f"{BASE_URL}/files/{user_info['user_id']}/visualize_dimensions_10_feature.png"
-        combined_pdf =  f"{BASE_URL}/files/{user_info['user_id']}/visualize_dimensions_10_feature.pdf"
+        combined_png =  f"{BASE_URL}/files/{user_info['user_id']}/visualize_dimensions_Top_10_features.png"
+        combined_pdf =  f"{BASE_URL}/files/{user_info['user_id']}/visualize_dimensions_Top_10_features.pdf"
 
         return {
             "message": "Dimensionality reduction visualizations created successfully.",
@@ -991,7 +991,7 @@ def rank_features(input_file, selected_model, param_grids, classifiers, output_d
         metrics_df.sort_values(by='AUPRC', ascending=False, inplace=True)
 
         # Save the sorted results to a CSV file
-        output_file = os.path.join(output_dir, 'single_feature_metrics_ranking.csv')
+        output_file = os.path.join(output_dir, 'single_gene_modles_metrics_ranking.csv')
         metrics_df.to_csv(output_file, index=False)
 
         # Plot Precision-Recall Curves (AUPRC) and ROC Curves (AUROC)
@@ -1011,7 +1011,7 @@ def rank_features(input_file, selected_model, param_grids, classifiers, output_d
             precision, recall, _ = precision_recall_curve(y, y_pred_proba_cv)
             axes[0].plot(recall, precision, lw=1.75, label=f'{feature} (AUPRC = {auprc:.2f})')
 
-        axes[0].set_title('Precision-Recall Curves for Individual Features')
+        axes[0].set_title('Precision-Recall Curves')
         axes[0].set_xlabel('Recall')
         axes[0].set_ylabel('Precision')
         axes[0].set_xlim([0.0, 1.0])
@@ -1025,7 +1025,7 @@ def rank_features(input_file, selected_model, param_grids, classifiers, output_d
             axes[1].plot(fpr, tpr, lw=1.75, label=f'{feature} (AUROC = {auc_score:.2f})')
 
         axes[1].plot([0, 1], [0, 1], 'k--', label='Random Chance')
-        axes[1].set_title('ROC Curves for Individual Features')
+        axes[1].set_title('ROC Curves')
         axes[1].set_xlabel('False Positive Rate')
         axes[1].set_ylabel('True Positive Rate')
         axes[1].set_xlim([0.0, 1.0])
@@ -1036,16 +1036,16 @@ def rank_features(input_file, selected_model, param_grids, classifiers, output_d
         plt.tight_layout(rect=[0, 0, 1, 0.95])  # Adjust for spacing and main title
 
         # Save the figure
-        plot_png_path = os.path.join(output_dir, 'single_feature_model_performance_landscape.png')
-        plot_pdf_path = os.path.join(output_dir, 'single_feature_model_performance_landscape.pdf')
+        plot_png_path = os.path.join(output_dir, 'Performance of Single-Gene Models.png')
+        plot_pdf_path = os.path.join(output_dir, 'Performance of Single-Gene Models.pdf')
         plt.savefig(plot_png_path, dpi=300, bbox_inches='tight')
         plt.savefig(plot_pdf_path)
         plt.close()
 
         # Prepare the output file paths for user
-        plot_png_path = f"{BASE_URL}/files/{user_info['user_id']}/single_feature_model_performance_landscape.png"
-        plot_pdf_path = f"{BASE_URL}/files/{user_info['user_id']}/single_feature_model_performance_landscape.pdf"
-        output_file = f"{BASE_URL}/files/{user_info['user_id']}/single_feature_metrics_ranking.csv"
+        plot_png_path = f"{BASE_URL}/files/{user_info['user_id']}/Performance of Single-Gene Models.png"
+        plot_pdf_path = f"{BASE_URL}/files/{user_info['user_id']}/Performance of Single-Gene Models.pdf"
+        output_file = f"{BASE_URL}/files/{user_info['user_id']}/single_gene_modles_metrics_ranking.csv"
 
         return json.dumps({
             "message": "Feature ranking and plotting completed successfully.",
@@ -1156,7 +1156,7 @@ def evaluate_model_with_features(input_file, selected_model, param_grids, classi
         # Save performance metrics to a CSV file
         metrics_df = pd.DataFrame(performance_metrics)
         metrics_df.sort_values(by='AUPRC', ascending=False, inplace=True)
-        metrics_csv = os.path.join(output_dir, 'gene_subset_model_performance_cv.csv')
+        metrics_csv = os.path.join(output_dir, 'gene_models_performance_cv.csv')
         metrics_df.to_csv(metrics_csv, index=False)
 
         # Ensure that Precision-Recall curves are computed
@@ -1209,15 +1209,15 @@ def evaluate_model_with_features(input_file, selected_model, param_grids, classi
         plt.tight_layout(rect=[0, 0, 1, 0.95])
 
         # Save the plots
-        plot_png = os.path.join(output_dir, 'performance_metrics_landscape.png')
-        plot_pdf = os.path.join(output_dir, 'performance_metrics_landscape.pdf')
+        plot_png = os.path.join(output_dir, 'Performance of the Gene Models.png')
+        plot_pdf = os.path.join(output_dir, 'Performance of the Gene Models.pdf')
         plt.savefig(plot_png, dpi=300, bbox_inches='tight')
         plt.savefig(plot_pdf)
         plt.close()
 
-        plot_png_path = f"{BASE_URL}/files/{user_info['user_id']}/performance_metrics_landscape.png"
-        plot_pdf_path = f"{BASE_URL}/files/{user_info['user_id']}/performance_metrics_landscape.pdf"
-        output_file = f"{BASE_URL}/files/{user_info['user_id']}/gene_subset_model_performance_cv.csv"
+        plot_png_path = f"{BASE_URL}/files/{user_info['user_id']}/Performance of the Gene Models.png"
+        plot_pdf_path = f"{BASE_URL}/files/{user_info['user_id']}/Performance of the Gene Models.pdf"
+        output_file = f"{BASE_URL}/files/{user_info['user_id']}/gene_models_performance_cv.csv"
 
         return {
             "message": "Feature evaluation completed successfully.",
