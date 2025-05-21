@@ -5,6 +5,7 @@ import os
 from core.consts import BASE_URL
 
 import matplotlib as mpl
+
 mpl.rcParams['pdf.fonttype'] = 42  # Ensures text is stored as text, not outlines
 mpl.rcParams['ps.fonttype'] = 42  # Same for PS files
 
@@ -376,16 +377,25 @@ def feature_selection_and_model(input_file, output_dir, feature_ratio, user_info
     
 
 import pandas as pd
-from sklearn.metrics import (
-    roc_auc_score, average_precision_score, f1_score, accuracy_score,
-    precision_score, recall_score, roc_curve, precision_recall_curve
-)
-from sklearn.model_selection import StratifiedKFold, cross_val_predict, GridSearchCV
-from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier, GradientBoostingClassifier, AdaBoostClassifier
-from sklearn.linear_model import LogisticRegression
-from xgboost import XGBClassifier
-import os
 import numpy as np
+from sklearn.model_selection import StratifiedKFold, GridSearchCV, cross_validate
+from sklearn.metrics import (
+    make_scorer,
+    accuracy_score, roc_auc_score, average_precision_score,
+    precision_score, recall_score, f1_score,
+    balanced_accuracy_score, matthews_corrcoef, cohen_kappa_score,
+    log_loss
+)
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import (
+    ExtraTreesClassifier,
+    RandomForestClassifier,
+    GradientBoostingClassifier,
+    AdaBoostClassifier
+)
+from xgboost import XGBClassifier
+
+import os
 import json
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, precision_recall_curve, roc_auc_score, average_precision_score
@@ -396,9 +406,11 @@ classifiers = {
     'Logistic Regression': LogisticRegression(max_iter=1000, random_state=123),
     'Extra Trees': ExtraTreesClassifier(random_state=123),
     'Random Forest': RandomForestClassifier(random_state=123),
-    'XGBoost': XGBClassifier(eval_metric='logloss', random_state=123),
+    'XGBoost' : XGBClassifier(eval_metric='logloss',
+                                         use_label_encoder=False,
+                                         random_state=123),
     'Gradient Boosting': GradientBoostingClassifier(random_state=123),
-    'AdaBoost': AdaBoostClassifier(algorithm='SAMME', random_state=123)
+    'AdaBoost': AdaBoostClassifier(random_state=123)
 }
 
 param_grids = {
@@ -432,305 +444,249 @@ param_grids = {
     }
 }
 
-# Declare global variable for best models
+# GLOBAL SCOPE
 best_models = {}
 
-# Initialize storage for metrics and results
-metrics = []
-roc_curves = {}
-pr_curves = {}
-
-def benchmark_models(input_file,output_dir, user_info):
-    global best_models  # Declare best_models as global to store results across API calls
-    
+# FUNCTION
+def benchmark_models(input_file, output_dir, user_info):
+    import os
+    import numpy as np
+    import pandas as pd
+    import matplotlib.pyplot as plt
+    from sklearn.model_selection import StratifiedKFold, GridSearchCV, cross_validate, cross_val_predict
+    from sklearn.metrics import (
+        accuracy_score, precision_score, recall_score, f1_score,
+        roc_auc_score, average_precision_score, balanced_accuracy_score,
+        matthews_corrcoef, cohen_kappa_score, log_loss, make_scorer,
+        roc_curve, precision_recall_curve
+    )
+    from sklearn.base import clone
 
     try:
-        # Load dataset
+        global best_models
+
+        # Load the dataset
         df = pd.read_csv(input_file)
         X = df.drop(columns=['condition'])
         y = df['condition']
 
-        # Initialize Stratified Cross-Validation
-        cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=123)
+        # Cross-validation setup
+        outer_cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=123)
+        inner_cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=123)
 
-        
+        # Define scoring metrics
+        scoring = {
+            'Accuracy': 'accuracy',
+            'AUROC': 'roc_auc',
+            'AUPRC': 'average_precision',
+            'Precision': 'precision',
+            'Recall': 'recall',
+            'F1': 'f1',
+            'Balanced_Accuracy': 'balanced_accuracy',
+            'Log_Loss': 'neg_log_loss',
+            'MCC': make_scorer(matthews_corrcoef),
+            'Kappa': make_scorer(cohen_kappa_score)
+        }
 
-        for name, model in classifiers.items():
-            print(f"Tuning {name}...")
+        # Storage
+        results = []
 
-            # Cross-validation predictions for original model
-            y_pred_proba_original = cross_val_predict(
-                model, X, y, cv=cv, method='predict_proba', n_jobs=-1
-            )[:, 1]
-            original_auc = roc_auc_score(y, y_pred_proba_original)
-            original_auprc = average_precision_score(y, y_pred_proba_original)
+        for name, clf in classifiers.items():
+            print(f"\nBenchmarking {name}…")
 
-            # Calculate ROC and Precision-Recall curves for the original model
-            fpr, tpr, _ = roc_curve(y, y_pred_proba_original)
-            precision, recall, _ = precision_recall_curve(y, y_pred_proba_original)
-            roc_curves[name] = (fpr, tpr)
-            pr_curves[name] = (precision, recall)
+            base_clf = clone(clf)
+            tune_clf = clone(clf)
 
-            # Optimal threshold for F1
-            thresholds = np.arange(0, 1, 0.01)
-            best_f1, best_threshold = max(
-                (f1_score(y, (y_pred_proba_original > t).astype(int)), t) for t in thresholds
+            # Default CV
+            base_cv_results = cross_validate(
+                estimator=base_clf,
+                X=X, y=y,
+                cv=outer_cv,
+                scoring=scoring,
+                n_jobs=-1
             )
-            y_pred = (y_pred_proba_original > best_threshold).astype(int)
+            base_auroc = base_cv_results['test_AUROC'].mean()
 
-            # Confusion matrix to derive specificity
-            tn, fp, fn, tp = confusion_matrix(y, y_pred).ravel()
-            specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
+            # Nested tuned CV
+            grid_search = GridSearchCV(
+                estimator=tune_clf,
+                param_grid=param_grids[name],
+                cv=inner_cv,
+                scoring='roc_auc',
+                n_jobs=-1
+            )
+            tuned_cv_results = cross_validate(
+                estimator=grid_search,
+                X=X, y=y,
+                cv=outer_cv,
+                scoring=scoring,
+                n_jobs=-1
+            )
+            tuned_auroc = tuned_cv_results['test_AUROC'].mean()
 
-            # Other metrics
-            accuracy = accuracy_score(y, y_pred)
-            precision_at_threshold = precision_score(y, y_pred)
-            recall_at_threshold = recall_score(y, y_pred)
-            mcc = matthews_corrcoef(y, y_pred)
-            balanced_acc = balanced_accuracy_score(y, y_pred)
-            kappa = cohen_kappa_score(y, y_pred)
-            logloss = log_loss(y, y_pred_proba_original)
-
-
-            # Optional tuning
-            if name in param_grids:
-                grid_search = GridSearchCV(
-                    model, param_grids[name], cv=cv, scoring='roc_auc', n_jobs=-1
-                )
+            # Pick better model
+            if tuned_auroc > base_auroc:
+                chosen_cv = tuned_cv_results
                 grid_search.fit(X, y)
-                tuned_model = grid_search.best_estimator_
-
-                y_pred_proba_tuned = cross_val_predict(
-                    tuned_model, X, y, cv=cv, method='predict_proba', n_jobs=-1
-                )[:, 1]
-
-                tuned_auc = roc_auc_score(y, y_pred_proba_tuned)
-                tuned_auprc = average_precision_score(y, y_pred_proba_tuned)
-
-                if tuned_auc > original_auc:
-                    best_model = tuned_model
-                    best_auc = tuned_auc
-                    best_auprc = tuned_auprc
-                    fpr, tpr, _ = roc_curve(y, y_pred_proba_tuned)
-                    precision, recall, _ = precision_recall_curve(y, y_pred_proba_tuned)
-                    roc_curves[name] = (fpr, tpr)
-                    pr_curves[name] = (precision, recall)
-                    print(f"{name}: Tuned model performed better (AUROC: {tuned_auc:.4f}, AUPRC: {tuned_auprc:.4f})")
-                else:
-                    best_model = model
-                    best_auc = original_auc
-                    best_auprc = original_auprc
-                    print(f"{name}: Original model retained (AUROC: {original_auc:.4f}, AUPRC: {original_auprc:.4f})")
+                best_models[name] = grid_search.best_estimator_
+                chosen = 'Tuned'
             else:
-                best_model = model
-                best_auc = original_auc
-                best_auprc = original_auprc
-                print(f"{name}: No hyperparameter tuning. Original model AUROC: {original_auc:.4f}, AUPRC: {original_auprc:.4f}")
+                chosen_cv = base_cv_results
+                best_models[name] = clone(clf)
+                chosen = 'Default'
 
-            best_models[name] = best_model
+            # Collect metrics
+            entry = {'Model': name, 'Chosen': chosen}
+            for metric in scoring:
+                scores = chosen_cv[f'test_{metric}']
+                entry[metric] = -scores.mean() if metric == 'Log_Loss' else scores.mean()
+                entry[metric + '_std'] = scores.std()
+            results.append(entry)
 
-            # Store all metrics
-            metrics.append({
-                'Model': name,
-                'AUROC': best_auc,
-                'AUPRC': best_auprc,
-                'Accuracy': accuracy,
-                'Precision': precision_at_threshold,
-                'Recall': recall_at_threshold,
-                'Specificity': specificity,
-                'F1-Score': best_f1,
-                'Balanced Accuracy': balanced_acc,
-                'MCC': mcc,
-                'Kappa': kappa,
-                'Log Loss': logloss,
-                'Optimal Threshold': best_threshold
-            })
-        # Convert metrics to a DataFrame
-        metrics_df = pd.DataFrame(metrics)
-        metrics_df = metrics_df.sort_values(by=['AUPRC'], ascending=False).reset_index(drop=True)
-         # Save metrics as CSV
-        metrics_path = os.path.join(output_dir, "ML_models_benchmarking_results.csv")
+        # Create and save the metrics DataFrame
+        metrics_df = pd.DataFrame(results).sort_values(by='AUPRC', ascending=False)
+        metrics_path = os.path.join(output_dir, "ML_classifiers_benchmarking_results.csv")
         metrics_df.to_csv(metrics_path, index=False)
-       
-        # Debug: Log what is being returned
-        print({
-            "metrics": metrics_df.to_dict(orient="records"),
-            "metrics_path": metrics_path
-        })
 
-
-
-        print(" ")
-
-        print(best_models)
-
-
-        # Sort models by AUPRC
-        sorted_models = sorted(best_models.items(), key=lambda x: metrics_df.loc[metrics_df['Model'] == x[0], 'AUPRC'].values[0], reverse=True)
-
-        # Create a figure with 2 subplots
+        # Plotting
+        sorted_names = metrics_df['Model'].tolist()
         fig, axes = plt.subplots(1, 2, figsize=(15, 6))
 
-        # --- AUPRC Curves ---
-        for name, model in sorted_models:
-            # Retrieve predictions
-            y_pred_proba_cv = cross_val_predict(model, X, y, cv=cv, method='predict_proba', n_jobs=-1)[:, 1]
-            precision, recall, _ = precision_recall_curve(y, y_pred_proba_cv)
-            auprc = average_precision_score(y, y_pred_proba_cv)
+        for name in sorted_names:
+            if name not in best_models:
+                continue
+            clf = best_models[name]
+            y_proba = cross_val_predict(clf, X, y, cv=outer_cv, method='predict_proba', n_jobs=-1)[:, 1]
 
-            # Plot Precision-Recall curve
-            axes[0].plot(recall, precision, lw=1.75, label=f'{name} (AUPRC = {auprc:.2f})')
+            precision, recall, _ = precision_recall_curve(y, y_proba)
+            auprc = average_precision_score(y, y_proba)
+            axes[0].plot(recall, precision, lw=1.75, label=f'{name} (AUPRC={auprc:.2f})')
 
-        axes[0].set_title('AUPRC Curves')
+            fpr, tpr, _ = roc_curve(y, y_proba)
+            auroc = roc_auc_score(y, y_proba)
+            axes[1].plot(fpr, tpr, lw=1.75, label=f'{name} (AUROC={auroc:.2f})')
+
+        # PR baseline
+        pos_rate = y.mean()
+        axes[0].hlines(pos_rate, 0, 1, linestyles='--', color='black', label=f'Baseline={pos_rate:.2f}', zorder=1)
+
+        axes[0].set_title('Precision–Recall Curves')
         axes[0].set_xlabel('Recall')
         axes[0].set_ylabel('Precision')
-        axes[0].set_xlim([0, 1])
-        axes[0].set_ylim([0, 1.05])
-        axes[0].legend(loc='lower left', fontsize=9, frameon=False)
-
-
-        # --- AUROC Curves ---
-        for name, model in sorted_models:
-            # Retrieve predictions
-            y_pred_proba_cv = cross_val_predict(model, X, y, cv=cv, method='predict_proba', n_jobs=-1)[:, 1]
-            fpr, tpr, _ = roc_curve(y, y_pred_proba_cv)
-            auc = roc_auc_score(y, y_pred_proba_cv)
-
-            # Plot ROC curve
-            axes[1].plot(fpr, tpr, lw=1.75, label=f'{name} (AUROC = {auc:.2f})')
+        axes[0].legend(loc='lower left', fontsize=9, frameon=True, facecolor='white')
 
         axes[1].plot([0, 1], [0, 1], 'k--', label='Random Chance')
-        axes[1].set_title('AUROC Curves')
+        axes[1].set_title('ROC Curves')
         axes[1].set_xlabel('False Positive Rate')
         axes[1].set_ylabel('True Positive Rate')
-        axes[1].set_xlim([0, 1])
-        axes[1].set_ylim([0, 1.05])
-        axes[1].legend(loc='lower right', fontsize=9, frameon=False)
+        axes[1].legend(loc='lower right', fontsize=9, frameon=True, facecolor='white')
 
-
-        # Add a main title for the figure
-        fig.suptitle('AUPRC and AUROC-Based Benchmarking of ML Classification Models', fontsize=16, y=1)
-
-        # Adjust layout for landscape orientation
+        fig.suptitle('ML classifiers Benchmarking: AUPRC and AUROC (Nested CV)', fontsize=16, y=1.02)
         plt.tight_layout(rect=[0, 0, 1, 0.95])
 
-        # Save the figure
-         # Save the figure
-        png_path = os.path.join(output_dir, 'ML_models_benchmarking_curves.png')
-        pdf_path = os.path.join(output_dir, 'ML_models_benchmarking_curves.pdf')
+        # Save the plots
+        png_path = os.path.join(output_dir, 'ML_classifiers_benchmarking_curves.png')
+        pdf_path = os.path.join(output_dir, 'ML_classifiers_benchmarking_curves.pdf')
         fig.savefig(png_path, dpi=300, bbox_inches='tight')
         fig.savefig(pdf_path, dpi=300, bbox_inches='tight')
 
-        # Show the combined figure
-        # plt.show()
-
-        metrics_csv = f"{BASE_URL}/files/{user_info['user_id']}/ML_models_benchmarking_results.csv"
+        # Return consistent structure
+        metrics_csv = f"{BASE_URL}/files/{user_info['user_id']}/ML_classifiers_benchmarking_results.csv"
         return {
             "metrics": metrics_df.to_dict(orient="records"),
             "metrics_path": metrics_csv
         }
 
     except Exception as e:
-        return f"Error: {str(e)}"
+        return {"error": str(e)}
 
 
-
-
-import pandas as pd
-import matplotlib.pyplot as plt
 
 import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
 
-def get_model_and_importance_with_top10(metrics_df, best_models, reduced_df, selected_model_name, output_dir, user_info, feature_names=None):
+def get_model_and_importance_with_top10(metrics_df, best_models, reduced_df, selected_model_name, output_dir, user_info):
     """
-    Analyze feature importance for a selected model and extract top 10 features.
+    Analyze and visualize top 10 feature importance for a selected model.
+    Saves both full feature importances and top-10 subset with a high-quality plot.
     """
-    # Ensure the selected model exists
+
+    # Validate input
     if selected_model_name not in best_models:
         raise ValueError(f"Model '{selected_model_name}' not found in best_models.")
 
-    # Retrieve the selected model
-    selected_model = best_models[selected_model_name]
-    print(f"\nAnalyzing feature importance for model: {selected_model_name}")
-
-    # Prepare features and labels
     if 'condition' not in reduced_df.columns:
-        raise ValueError("'condition' column is missing in the dataset.")
+        raise ValueError("Missing 'condition' column in reduced_df.")
+
+    selected_model = best_models[selected_model_name]
     X = reduced_df.drop(columns=['condition'])
     y = reduced_df['condition']
 
-    # Fit the model on the full dataset
+    # Fit the model
     selected_model.fit(X, y)
 
-    # Handle feature names
-    if feature_names is None:
-        feature_names = X.columns.tolist()
-
-    # Compute feature importance
-    if hasattr(selected_model, "feature_importances_"):
-        # Tree-based models
+    # Compute importance
+    if hasattr(selected_model, 'feature_importances_'):
         importance_scores = selected_model.feature_importances_
-    elif hasattr(selected_model, "coef_"):
-        # Linear models
-        importance_scores = np.abs(selected_model.coef_.flatten())  # Take absolute value
+    elif hasattr(selected_model, 'coef_'):
+        importance_scores = np.abs(selected_model.coef_.flatten())
     else:
-        raise ValueError(f"Model '{selected_model_name}' does not support feature importance or coefficients.")
+        raise AttributeError(
+            f"Model '{selected_model_name}' does not support feature importance or coefficients."
+        )
 
+    # Normalize importance
     importance_df = pd.DataFrame({
-        'Feature': feature_names,
-        'Importance': importance_scores
+        'Feature': X.columns,
+        'Importance': importance_scores / importance_scores.sum()
     }).sort_values(by='Importance', ascending=False)
 
-    # Select top 10 features
-    top10_features = importance_df.head(10)
-    print("\nTop 10 Feature Importance Scores:")
-    print(top10_features)
+    # Extract top 10
+    top10 = importance_df.head(10)
+    top10_feature_names = top10['Feature'].tolist()
+    columns_to_include = top10_feature_names + ['condition']
+    top10_df = reduced_df[columns_to_include].copy()
 
-    # Plot top 10 feature importance using seaborn
-    plt.figure(figsize=(10, 6))
-    sns.barplot(
-        x='Importance',
-        y='Feature',
-        data=top10_features,
-        hue='Feature',
-        palette='viridis',
-        dodge=False,
-        legend=False
-    )
-    plt.title(f"Top 10 Feature Importance for {selected_model_name}")
-    plt.xlabel('Importance Score')
-    plt.ylabel('Feature')
-    plt.tight_layout()
-
-    # Save the plot
-    user_folder = f"{output_dir}/files/{user_info['user_id']}"
+    # File paths
+    user_id = user_info['user_id']
+    user_folder = os.path.join(output_dir, 'files', str(user_id))
     os.makedirs(user_folder, exist_ok=True)
 
-    plot_path = f"{user_folder}/top10_feature_importance_{selected_model_name}.png"
-    plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+    base_fname = selected_model_name.replace(' ', '_').lower()
+    full_csv_path = os.path.join(user_folder, f"{base_fname}_feature_importance.csv")
+    top10_csv_path = os.path.join(user_folder, f"top10_features_{base_fname}.csv")
+    plot_png_path = os.path.join(user_folder, f"top10_feature_importance_{base_fname}.png")
+    plot_pdf_path = os.path.join(user_folder, f"top10_feature_importance_{base_fname}.pdf")
+
+    # Save full importance CSV
+    importance_df.to_csv(full_csv_path, index=False)
+
+    # Save top 10 CSV
+    top10_df.to_csv(top10_csv_path, index=False)
+
+    # Plot top 10
+    top10_plot = top10[::-1]  # reverse for top-down barh
+    plt.figure(figsize=(10, 6))
+    plt.barh(top10_plot['Feature'], top10_plot['Importance'], color='steelblue')
+    plt.title(f"Top 10 Important Features – {selected_model_name}")
+    plt.xlabel("Normalized Importance")
+    plt.ylabel("Feature")
+    plt.tight_layout()
+    plt.savefig(plot_png_path, dpi=300, bbox_inches='tight')
+    plt.savefig(plot_pdf_path, dpi=300, bbox_inches='tight')
     plt.close()
 
-    # Extract the top 10 features from the reduced DataFrame
-    top10_feature_names = top10_features['Feature'].tolist()
-    columns_to_include = top10_feature_names + ['condition']
-    top10_df = reduced_df[columns_to_include]
-
-    # Save the top 10 DataFrame
-    top10_path = f"{user_folder}/top10_features_{selected_model_name}.csv"
-    top10_df.to_csv(top10_path, index=False)
-
-    # Adjust URLs for public return
-    top10_path = f"{BASE_URL}/files/{user_info['user_id']}/top10_features_{selected_model_name}.csv"
-    plot_path = f"{BASE_URL}/files/{user_info['user_id']}/top10_feature_importance_{selected_model_name}.png"
-
+    # Return as API-ready paths
+    base_url = f"{BASE_URL}/files/{user_id}"
     return {
-        "top10_features_path": top10_path,
-        "top10_plot_path": plot_path,
-        "top10_features": top10_features.to_dict(orient="records")
+        "top10_features_path": f"{base_url}/top10_features_{base_fname}.csv",
+        "top10_plot_path": f"{base_url}/top10_feature_importance_{base_fname}.png",
+        "top10_features": top10.to_dict(orient="records"),
+        "full_importance_path": f"{base_url}/{base_fname}_feature_importance.csv",
+        "plot_pdf_path": f"{base_url}/top10_feature_importance_{base_fname}.pdf",
+        "top10_feature_names": top10_feature_names
     }
 
 
@@ -889,169 +845,150 @@ def visualize_dimensionality_reduction_feature(input_file, output_dir, user_info
 
 
 import os
-import pandas as pd
 import json
-from sklearn.metrics import (
-    roc_auc_score, precision_recall_curve, average_precision_score,
-    f1_score, accuracy_score, precision_score, recall_score,
-    matthews_corrcoef, log_loss, confusion_matrix
-)
-from sklearn.model_selection import StratifiedKFold, GridSearchCV, cross_val_predict
+import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.model_selection import StratifiedKFold, GridSearchCV, cross_val_predict
+from sklearn.metrics import (
+    roc_auc_score, average_precision_score, precision_score, recall_score,
+    f1_score, accuracy_score, matthews_corrcoef, log_loss,
+    roc_curve, precision_recall_curve
+)
+from sklearn.base import clone
 
-def rank_features(input_file, selected_model, param_grids, classifiers, output_dir, user_info):
+def rank_features(top10_df, selected_model, param_grids, classifiers, output_dir, user_info):
     """
-    Function to rank features based on individual model performance metrics and plot performance metrics.
+    Rank top features based on single-feature model performance (AUPRC, AUROC, etc.).
+    Saves CSV and plots ROC/PR curves for each.
     """
+
     try:
-        # Read the input data
-        df = pd.read_csv(input_file)
-
-        # Ensure 'condition' column exists
-        if 'condition' not in df.columns:
-            raise ValueError("The input file must contain a 'condition' column.")
+        # --- Validate inputs ---
+        if selected_model not in param_grids:
+            raise ValueError(f"Parameter grid not found for model: {selected_model}")
+        if selected_model not in classifiers:
+            raise ValueError(f"Classifier not found for model: {selected_model}")
+        if 'condition' not in top10_df.columns:
+            raise ValueError("Missing 'condition' column in top10_df.")
 
         # Prepare data
-        X = df.drop(columns=['condition'])  # Feature data
-        y = df['condition']  # Target variable
+        X = top10_df.drop(columns=['condition'])
+        y = top10_df['condition']
 
-        # Initialize Stratified Cross-Validation
-        cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=123)
-
-        # Hyperparameter grid for the selected model
-        if selected_model not in param_grids:
-            raise ValueError(f"Parameter grid not found for the model: {selected_model}")
+        model = classifiers[selected_model]
         param_grid = param_grids[selected_model]
 
-        if selected_model not in classifiers:
-            raise ValueError(f"Classifier not found for the model: {selected_model}")
-        model = classifiers[selected_model]
+        outer_cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=123)
+        inner_cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
 
-        # Store results for metrics
+        # Storage
         metrics_scores = []
-        roc_auc_scores = {}
         predictions = {}
 
-        # Loop through features for individual modeling and tuning
-        for feature in X.columns.difference(['condition']):  # Loop through all features except 'condition'
-            print(f"Processing feature: {feature}")
+        # --- Loop through each top feature ---
+        for feature in X.columns:
+            print(f"Evaluating single-feature model for: {feature}")
+            X_single = X[[feature]]
 
-            # Prepare single feature data
-            X_single = X[[feature]]  # Select only the current feature
+            grid_search = GridSearchCV(
+                estimator=clone(model),
+                param_grid=param_grid,
+                cv=inner_cv,
+                scoring='roc_auc',
+                n_jobs=-1
+            )
 
-            # Perform GridSearchCV for hyperparameter tuning
-            grid_search = GridSearchCV(model, param_grid, cv=cv, scoring='roc_auc', n_jobs=-1)
-            grid_search.fit(X_single, y)
-
-            # Get the best model
-            best_model = grid_search.best_estimator_
-
-            # Perform cross-validation to get prediction probabilities
             y_pred_proba = cross_val_predict(
-                best_model, X_single, y, cv=cv, method='predict_proba', n_jobs=-1
-            )[:, 1]  # Use the probability for the positive class (class 1)
+                estimator=grid_search,
+                X=X_single,
+                y=y,
+                cv=outer_cv,
+                method='predict_proba',
+                n_jobs=-1
+            )[:, 1]
 
-            # Perform cross-validation to get predictions
-            y_pred = cross_val_predict(best_model, X_single, y, cv=cv, method='predict', n_jobs=-1)
+            y_pred = (y_pred_proba > 0.5).astype(int)
 
-            # Calculate metrics
-            roc_auc = roc_auc_score(y, y_pred_proba)
-            precision, recall, _ = precision_recall_curve(y, y_pred_proba)
-            auprc = average_precision_score(y, y_pred_proba)
-            f1 = f1_score(y, y_pred)
-            accuracy = accuracy_score(y, y_pred)
-            mcc = matthews_corrcoef(y, y_pred)  # Matthews Correlation Coefficient
-            logloss = log_loss(y, y_pred_proba)  # Log Loss
-
-            # Store the results
-            roc_auc_scores[feature] = roc_auc
-            predictions[feature] = y_pred_proba
-
-            # Calculate Precision and Recall at the default threshold (0.5)
-            precision_at_threshold = precision_score(y, y_pred)
-            recall_at_threshold = recall_score(y, y_pred)
-
-            # Store metrics
             metrics_scores.append({
                 'Feature': feature,
-                'AUPRC': auprc,
-                'AUROC': roc_auc,
-                'Precision': precision_at_threshold,
-                'Recall': recall_at_threshold,
-                'F1-Score': f1,
-                'Accuracy': accuracy,
-                'MCC': mcc,
-                'LogLoss': logloss
+                'AUPRC': average_precision_score(y, y_pred_proba),
+                'AUROC': roc_auc_score(y, y_pred_proba),
+                'Precision': precision_score(y, y_pred),
+                'Recall': recall_score(y, y_pred),
+                'F1-Score': f1_score(y, y_pred),
+                'Accuracy': accuracy_score(y, y_pred),
+                'MCC': matthews_corrcoef(y, y_pred),
+                'LogLoss': log_loss(y, y_pred_proba)
             })
 
-        # Convert metrics to a DataFrame for analysis
-        metrics_df = pd.DataFrame(metrics_scores)
+            predictions[feature] = y_pred_proba
 
-        # Sort features based on the primary metric (AUPRC) in descending order
-        metrics_df.sort_values(by='AUPRC', ascending=False, inplace=True)
+        # --- Save metrics ---
+        metrics_df = pd.DataFrame(metrics_scores).sort_values(by='AUPRC', ascending=False)
 
-        # Save the sorted results to a CSV file
-        output_file = os.path.join(output_dir, 'single_gene_modles_metrics_ranking.csv')
-        metrics_df.to_csv(output_file, index=False)
+        # Save paths
+        user_id = user_info['user_id']
+        user_folder = os.path.join(output_dir, 'files', str(user_id))
+        os.makedirs(user_folder, exist_ok=True)
 
-        # Plot Precision-Recall Curves (AUPRC) and ROC Curves (AUROC)
-        fig, axes = plt.subplots(1, 2, figsize=(15, 6))  # Adjust width and height for landscape view
+        csv_path = os.path.join(user_folder, 'single_feature_metrics_ranking.csv')
+        metrics_df.to_csv(csv_path, index=False)
 
-        # --- Precision-Recall Curves (AUPRC) ---
-        auprc_scores = {}
-        for feature in X.columns.difference(['condition']):
-            y_pred_proba_cv = predictions[feature]
-            precision, recall, _ = precision_recall_curve(y, y_pred_proba_cv)
-            auprc = average_precision_score(y, y_pred_proba_cv)
-            auprc_scores[feature] = auprc
+        # --- Plotting ---
+        fig, axes = plt.subplots(1, 2, figsize=(15, 6))
 
-        sorted_auprc_features = sorted(auprc_scores.items(), key=lambda x: x[1], reverse=True)
-        for feature, auprc in sorted_auprc_features:
-            y_pred_proba_cv = predictions[feature]
-            precision, recall, _ = precision_recall_curve(y, y_pred_proba_cv)
-            axes[0].plot(recall, precision, lw=1.75, label=f'{feature} (AUPRC = {auprc:.2f})')
+        # Precision–Recall
+        auprc_scores = {
+            feature: average_precision_score(y, predictions[feature])
+            for feature in predictions
+        }
+        sorted_auprc = sorted(auprc_scores.items(), key=lambda x: x[1], reverse=True)
 
-        axes[0].set_title('Precision-Recall Curves')
+        for feature, auprc in sorted_auprc:
+            precision, recall, _ = precision_recall_curve(y, predictions[feature])
+            axes[0].plot(recall, precision, lw=1.75, label=f"{feature} (AUPRC = {auprc:.2f})")
+
+        pos_rate = y.mean()
+        axes[0].hlines(pos_rate, 0, 1, linestyles='--', color='black', label=f'Baseline={pos_rate:.2f}')
+        axes[0].set_title('Precision–Recall Curves (Single-Gene)')
         axes[0].set_xlabel('Recall')
         axes[0].set_ylabel('Precision')
-        axes[0].set_xlim([0.0, 1.0])
-        axes[0].set_ylim([0.0, 1.05])
-        axes[0].legend(loc='lower left', fontsize=8, frameon=False)
+        axes[0].set_xlim(0, 1)
+        axes[0].set_ylim(0, 1.05)
+        axes[0].legend(loc='lower left', fontsize=8, frameon=True, facecolor='white')
 
-        # --- ROC Curves (AUROC) ---
-        sorted_features = sorted(roc_auc_scores.items(), key=lambda x: x[1], reverse=True)
-        for feature, auc_score in sorted_features:
+        # ROC
+        for feature, _ in sorted_auprc:
             fpr, tpr, _ = roc_curve(y, predictions[feature])
-            axes[1].plot(fpr, tpr, lw=1.75, label=f'{feature} (AUROC = {auc_score:.2f})')
+            auroc = roc_auc_score(y, predictions[feature])
+            axes[1].plot(fpr, tpr, lw=1.75, label=f"{feature} (AUROC = {auroc:.2f})")
 
         axes[1].plot([0, 1], [0, 1], 'k--', label='Random Chance')
-        axes[1].set_title('ROC Curves')
+        axes[1].set_title('ROC Curves (Single-Gene)')
         axes[1].set_xlabel('False Positive Rate')
         axes[1].set_ylabel('True Positive Rate')
-        axes[1].set_xlim([0.0, 1.0])
-        axes[1].set_ylim([0.0, 1.05])
-        axes[1].legend(loc='lower right', fontsize=8, frameon=False)
+        axes[1].set_xlim(0, 1)
+        axes[1].set_ylim(0, 1.05)
+        axes[1].legend(loc='lower right', fontsize=8, frameon=True, facecolor='white')
 
-        fig.suptitle('Performance of Single-Gene Models', fontsize=16, y=1)
-        plt.tight_layout(rect=[0, 0, 1, 0.95])  # Adjust for spacing and main title
+        fig.suptitle('AUPRC and AUROC of Single-Gene Models', fontsize=16, y=1.02)
+        plt.tight_layout(rect=[0, 0, 1, 0.96])
 
-        # Save the figure
-        plot_png_path = os.path.join(output_dir, 'Performance of Single-Gene Models.png')
-        plot_pdf_path = os.path.join(output_dir, 'Performance of Single-Gene Models.pdf')
-        plt.savefig(plot_png_path, dpi=300, bbox_inches='tight')
-        plt.savefig(plot_pdf_path)
+        # Save figures
+        plot_png = os.path.join(user_folder, 'single_feature_model_performance_landscape.png')
+        plot_pdf = os.path.join(user_folder, 'single_feature_model_performance_landscape.pdf')
+        fig.savefig(plot_png, dpi=300, bbox_inches='tight')
+        fig.savefig(plot_pdf, dpi=300, bbox_inches='tight')
         plt.close()
 
-        # Prepare the output file paths for user
-        plot_png_path = f"{BASE_URL}/files/{user_info['user_id']}/Performance of Single-Gene Models.png"
-        plot_pdf_path = f"{BASE_URL}/files/{user_info['user_id']}/Performance of Single-Gene Models.pdf"
-        output_file = f"{BASE_URL}/files/{user_info['user_id']}/single_gene_modles_metrics_ranking.csv"
-
+        # Return URLs
+        base_url = f"{BASE_URL}/files/{user_id}"
         return json.dumps({
             "message": "Feature ranking and plotting completed successfully.",
-            "ranking_file": output_file,
-            "plot_png": plot_png_path,
-            "plot_pdf": plot_pdf_path,
+            "ranking_file": f"{base_url}/single_feature_metrics_ranking.csv",
+            "plot_png": f"{base_url}/single_feature_model_performance_landscape.png",
+            "plot_pdf": f"{base_url}/single_feature_model_performance_landscape.pdf",
             "metrics": metrics_df.to_dict(orient="records")
         })
 
@@ -1062,173 +999,157 @@ def rank_features(input_file, selected_model, param_grids, classifiers, output_d
         })
 
 
+
+import os
+import json
+import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 from sklearn.model_selection import StratifiedKFold, GridSearchCV, cross_val_predict
 from sklearn.metrics import (
     roc_auc_score, average_precision_score, accuracy_score, f1_score,
-    roc_curve, precision_recall_curve, auc, precision_score, recall_score,
+    roc_curve, precision_recall_curve, precision_score, recall_score,
     matthews_corrcoef, log_loss
 )
-import matplotlib.pyplot as plt
-import os
 
-def evaluate_model_with_features(input_file, selected_model, param_grids, classifiers, output_dir, user_info):
+def evaluate_model_with_features(top10_df, top10_df_array, selected_model, param_grids, classifiers, output_dir, user_info):
     """
-    Function to evaluate models with varying numbers of top features and plot performance metrics.
-    New metrics added: MCC and Log Loss.
+    Evaluate the performance of models using top-N features (10 to 1), save plots and metrics, and select the best feature subset.
     """
     try:
-        # Load the dataset
-        df = pd.read_csv(input_file)
+        # Prepare cross-validation
+        outer_cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=123)
+        inner_cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
 
-        # Ensure the output directory exists
-        os.makedirs(output_dir, exist_ok=True)
-
-        # Validate the input
-        if 'condition' not in df.columns:
-            raise ValueError("The input file must contain a 'condition' column.")
-        
-        # Prepare data
-        X_full = df.drop(columns=['condition'])
-        y = df['condition']
-        top_features = X_full.columns.tolist()
-
-        # Initialize Stratified Cross-Validation
-        cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=123)
-
-        # Initialize storage for curves and performance metrics
+        # Storage
         roc_curves = []
         pr_curves = []
         performance_metrics = []
 
-        # Loop over the number of features from 10 to 1
         for n_features in range(10, 0, -1):
-            print(f"Evaluating model with top {n_features} features...")
+            print(f"\nEvaluating model with top {n_features} genes...")
 
-            # Create a subset of features
-            selected_features = top_features[:n_features]
-            X = X_full[selected_features]
+            selected_features = list(top10_df_array[:n_features])
+            current_df = top10_df[selected_features + ['condition']]
 
-            # Get the model and hyperparameters
-            if selected_model not in classifiers or selected_model not in param_grids:
-                raise ValueError(f"Invalid model: {selected_model}")
-            model = classifiers[selected_model]
-            param_grid = param_grids[selected_model]
+            X = current_df.drop(columns=['condition'])
+            y = current_df['condition']
 
-            # Perform GridSearchCV for hyperparameter tuning
-            grid_search = GridSearchCV(model, param_grid, cv=cv, scoring='roc_auc', n_jobs=-1)
-            grid_search.fit(X, y)
-            final_model = grid_search.best_estimator_
+            # Nested model tuning
+            nested_model = GridSearchCV(
+                estimator=classifiers[selected_model],
+                param_grid=param_grids[selected_model],
+                cv=inner_cv,
+                scoring='roc_auc',
+                n_jobs=-1
+            )
 
-            # Cross-validation predictions
-            y_pred_proba = cross_val_predict(final_model, X, y, cv=cv, method='predict_proba')[:, 1]
+            y_pred_proba = cross_val_predict(
+                nested_model, X, y,
+                cv=outer_cv,
+                method='predict_proba',
+                n_jobs=-1
+            )[:, 1]
+
             y_pred = (y_pred_proba > 0.5).astype(int)
 
-            # Calculate metrics
+            # Metrics
             roc_auc = roc_auc_score(y, y_pred_proba)
             pr_auc = average_precision_score(y, y_pred_proba)
             f1 = f1_score(y, y_pred)
             accuracy = accuracy_score(y, y_pred)
             precision = precision_score(y, y_pred)
             recall = recall_score(y, y_pred)
-            mcc = matthews_corrcoef(y, y_pred)  # Adding MCC
-            logloss = log_loss(y, y_pred_proba)  # Adding Log Loss
+            mcc = matthews_corrcoef(y, y_pred)
+            logloss = log_loss(y, y_pred_proba)
 
-            # Store ROC and Precision-Recall curves
             fpr, tpr, _ = roc_curve(y, y_pred_proba)
             precision_curve, recall_curve, _ = precision_recall_curve(y, y_pred_proba)
+
             roc_curves.append((fpr, tpr, roc_auc, n_features))
             pr_curves.append((precision_curve, recall_curve, pr_auc, n_features))
 
-            # Store performance metrics
             performance_metrics.append({
-                'Number of Features': n_features,
+                'Number of Genes': n_features,
                 'AUPRC': pr_auc,
                 'AUROC': roc_auc,
-                'F1 Score': f1,
-                'Accuracy': accuracy,
                 'Precision': precision,
                 'Recall': recall,
-                'MCC': mcc,  # Adding MCC
-                'Log Loss': logloss  # Adding Log Loss
+                'F1 Score': f1,
+                'Accuracy': accuracy,
+                'MCC': mcc,
+                'Log Loss': logloss
             })
 
-        # Save performance metrics to a CSV file
+        # Save performance metrics
         metrics_df = pd.DataFrame(performance_metrics)
         metrics_df.sort_values(by='AUPRC', ascending=False, inplace=True)
-        metrics_csv = os.path.join(output_dir, 'gene_models_performance_cv.csv')
-        metrics_df.to_csv(metrics_csv, index=False)
 
-        # Ensure that Precision-Recall curves are computed
-        if not pr_curves:
-            raise ValueError("pr_curves is empty. Ensure the Precision-Recall curves are computed before selecting features.")
+        user_id = user_info['user_id']
+        user_folder = os.path.join(output_dir, 'files', str(user_id))
+        os.makedirs(user_folder, exist_ok=True)
 
-        # Select the top model based on AUPRC
-        best_pr_curve = max(pr_curves, key=lambda x: x[2])  # Get the curve with the highest AUPRC
-        best_pr_n_features = best_pr_curve[3]  # Number of features for the best AUPRC
-        print(f"Best model based on AUPRC uses {best_pr_n_features} features.")
+        metrics_csv_path = os.path.join(user_folder, 'biomarker_algorithms_performance.csv')
+        metrics_df.to_csv(metrics_csv_path, index=False)
 
-        # Ensure selected features are valid
-        selected_features = top_features[:best_pr_n_features]
-        missing_features = [feature for feature in selected_features if feature not in df.columns]
-        if missing_features:
-            raise ValueError(f"The following features are missing in the DataFrame: {missing_features}")
-
-        # Create the final DataFrame with selected features
-        final_df = df[selected_features + ['condition']]
-        final_df_path = os.path.join(output_dir, 'final_selected_features_auprc.csv')
-        final_df.to_csv(final_df_path, index=False)
-
-        # --- Plot Precision-Recall and ROC Curves ---
+        # Plotting
         fig, axes = plt.subplots(1, 2, figsize=(16, 6))
-
-        # Sort ROC curves by AUC
         roc_curves.sort(key=lambda x: x[2], reverse=True)
-        # Sort PR curves by PR AUC
         pr_curves.sort(key=lambda x: x[2], reverse=True)
 
-        # Plot Precision-Recall Curves
         for precision, recall, pr_auc, n_features in pr_curves:
-            axes[0].plot(recall, precision, lw=1.75, label=f'{n_features} Features (AUPRC = {pr_auc:.2f})')
-        axes[0].set_title('Precision-Recall Curves')
+            axes[0].plot(recall, precision, lw=1.75, label=f'{n_features}-Gene Model (AUPRC = {pr_auc:.2f})')
+        pos_rate = y.mean()
+        axes[0].hlines(pos_rate, 0, 1, linestyles='--', color='black', label=f'Baseline={pos_rate:.2f}')
+        axes[0].set_title('Precision–Recall Curves')
         axes[0].set_xlabel('Recall')
         axes[0].set_ylabel('Precision')
-        axes[0].legend(loc='lower left', fontsize=9, frameon=False)
+        axes[0].legend(loc='lower left', fontsize=8, frameon=True)
 
-        # Plot ROC Curves
         for fpr, tpr, roc_auc, n_features in roc_curves:
-            axes[1].plot(fpr, tpr, lw=1.75, label=f'{n_features} Features (AUROC = {roc_auc:.2f})')
-        axes[1].plot([0, 1], [0, 1], 'k--', label='Random Chance')
+            axes[1].plot(fpr, tpr, lw=1.75, label=f'{n_features}-Gene Model (AUROC = {roc_auc:.2f})')
+        axes[1].plot([0, 1], [0, 1], 'k--')
         axes[1].set_title('ROC Curves')
         axes[1].set_xlabel('False Positive Rate')
         axes[1].set_ylabel('True Positive Rate')
-        axes[1].legend(loc='lower right', fontsize=9, frameon=False)
+        axes[1].legend(loc='lower right', fontsize=8, frameon=True)
 
-        # Add a main title for the figure
-        fig.suptitle('Performance of the Gene Models', fontsize=16, y=1)
-        plt.tight_layout(rect=[0, 0, 1, 0.95])
+        fig.suptitle('AUPRC and AUROC Plots of Gene-Models', fontsize=16, y=1.02)
+        plt.tight_layout(rect=[0, 0, 1, 0.96])
 
-        # Save the plots
-        plot_png = os.path.join(output_dir, 'Performance of the Gene Models.png')
-        plot_pdf = os.path.join(output_dir, 'Performance of the Gene Models.pdf')
-        plt.savefig(plot_png, dpi=300, bbox_inches='tight')
-        plt.savefig(plot_pdf)
+        png_path = os.path.join(user_folder, 'biomarker_algorithms_performance_metrics.png')
+        pdf_path = os.path.join(user_folder, 'biomarker_algorithms_performance_metrics.pdf')
+        fig.savefig(png_path, dpi=300, bbox_inches='tight')
+        fig.savefig(pdf_path, bbox_inches='tight')
         plt.close()
 
-        plot_png_path = f"{BASE_URL}/files/{user_info['user_id']}/Performance of the Gene Models.png"
-        plot_pdf_path = f"{BASE_URL}/files/{user_info['user_id']}/Performance of the Gene Models.pdf"
-        output_file = f"{BASE_URL}/files/{user_info['user_id']}/gene_models_performance_cv.csv"
+        # Select best feature subset based on AUPRC
+        best_pr_curve = max(pr_curves, key=lambda x: x[2])
+        best_n = best_pr_curve[3]
+        selected_features = list(top10_df_array[:best_n])
 
+        if any(f not in top10_df.columns for f in selected_features):
+            raise ValueError("Some selected features are missing in top10_df.")
+
+        final_df = top10_df[selected_features + ['condition']]
+        final_df_path = os.path.join(user_folder, 'final_selected_biomarker_algorithms_df.csv')
+        final_df.to_csv(final_df_path, index=False)
+
+        # Return paths and results
+        base_url = f"{BASE_URL}/files/{user_id}"
         return {
-            "message": "Feature evaluation completed successfully.",
-            "metrics_file": output_file,
-            "plot_png": plot_png_path,
-            "plot_pdf": plot_pdf_path,
-            "metrics": metrics_df.to_dict(orient="records")
+            "message": "Evaluation completed successfully.",
+            "metrics_file": f"{base_url}/biomarker_algorithms_performance.csv",
+            "plot_png": f"{base_url}/biomarker_algorithms_performance_metrics.png",
+            "plot_pdf": f"{base_url}/biomarker_algorithms_performance_metrics.pdf",
+            "selected_features_file": f"{base_url}/final_selected_biomarker_algorithms_df.csv",
+            "metrics": metrics_df.to_dict(orient="records"),
+            "best_n_features": best_n,
+            "selected_features": selected_features
         }
 
     except Exception as e:
-        return {"message": "Error during feature evaluation.", "error": str(e)}
+        return {"message": "Error during model evaluation.", "error": str(e)}
 
 
 # Function for visualization using dimensionality reduction (PCA, t-SNE, UMAP)
