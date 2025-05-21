@@ -1292,153 +1292,152 @@ def visualize_dimensionality_reduction_final(input_file, output_dir, user_info):
         }
     
 
-
-
+import os
+import json
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from joblib import dump
 from sklearn.model_selection import train_test_split, StratifiedKFold, GridSearchCV, cross_val_predict
 from sklearn.metrics import (
     roc_auc_score, average_precision_score, roc_curve, precision_recall_curve,
-    accuracy_score, f1_score, precision_score, recall_score, confusion_matrix, ConfusionMatrixDisplay
+    accuracy_score, f1_score, precision_score, recall_score,
+    matthews_corrcoef, log_loss, confusion_matrix, ConfusionMatrixDisplay
 )
-from joblib import dump
-import matplotlib.pyplot as plt
-import os
 
 def evaluate_final_model(final_df_path, selected_model, param_grids, classifiers, output_dir, user_info):
     """
-    Function to train, validate, and test the final model, and save results and plots.
+    Final model training, evaluation (train/test), and artifact saving for production use.
     """
-    try:
-        # Load the final dataset
-        final_df = pd.read_csv(final_df_path)
 
-        # Ensure 'condition' column exists
+    try:
+        # Load data
+        final_df = pd.read_csv(final_df_path)
         if 'condition' not in final_df.columns:
             raise ValueError("The input file must contain a 'condition' column.")
 
-        # Prepare data
         X = final_df.drop(columns=['condition'])
         y = final_df['condition']
 
-        # Split data into training and testing sets
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, stratify=y, random_state=123
-        )
-        print(f"Training set size: {X_train.shape}, Testing set size: {X_test.shape}")
+        # Train/test split
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, stratify=y, random_state=123)
 
-        # Define cross-validation and the model
-        cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=123)
-        default_model = classifiers[selected_model]
+        outer_cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=123)
+        inner_cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
+        model = classifiers[selected_model]
         param_grid = param_grids[selected_model]
 
-        # Hyperparameter tuning with GridSearchCV
-        print(f"Tuning hyperparameters for {selected_model}...")
-        grid_search = GridSearchCV(
-            default_model, param_grid, cv=cv, scoring='roc_auc', n_jobs=-1
-        )
-        grid_search.fit(X_train, y_train)
-        tuned_model = grid_search.best_estimator_
-        print(f"Best parameters for {selected_model}: {grid_search.best_params_}")
+        # Nested CV on training set
+        nested_grid = GridSearchCV(estimator=model, param_grid=param_grid, cv=inner_cv, scoring='roc_auc', n_jobs=-1)
+        y_pred_proba_train = cross_val_predict(nested_grid, X_train, y_train, cv=outer_cv, method='predict_proba', n_jobs=-1)[:, 1]
+        y_pred_train = (y_pred_proba_train > 0.5).astype(int)
 
-        # Cross-validation on the training set
-        y_pred_proba_train_cv = cross_val_predict(
-            tuned_model, X_train, y_train, cv=cv, method='predict_proba', n_jobs=-1
-        )[:, 1]
-        y_pred_train_cv = cross_val_predict(
-            tuned_model, X_train, y_train, cv=cv, method='predict', n_jobs=-1
-        )
+        # Training metrics
+        train_metrics = {
+            'Set': 'Train (Nested CV)',
+            'AUROC': roc_auc_score(y_train, y_pred_proba_train),
+            'AUPRC': average_precision_score(y_train, y_pred_proba_train),
+            'Accuracy': accuracy_score(y_train, y_pred_train),
+            'F1-Score': f1_score(y_train, y_pred_train),
+            'Precision': precision_score(y_train, y_pred_train),
+            'Recall': recall_score(y_train, y_pred_train),
+            'MCC': matthews_corrcoef(y_train, y_pred_train),
+            'LogLoss': log_loss(y_train, y_pred_proba_train),
+            'Confusion Matrix': confusion_matrix(y_train, y_pred_train).tolist()
+        }
 
-        # Training set metrics
-        train_roc_auc_cv = roc_auc_score(y_train, y_pred_proba_train_cv)
-        train_pr_auc_cv = average_precision_score(y_train, y_pred_proba_train_cv)
-        train_accuracy_cv = accuracy_score(y_train, y_pred_train_cv)
-        train_f1_cv = f1_score(y_train, y_pred_train_cv)
-        train_precision_cv = precision_score(y_train, y_pred_train_cv)
-        train_recall_cv = recall_score(y_train, y_pred_train_cv)
+        # Final model refit on full training data
+        final_grid = GridSearchCV(estimator=model, param_grid=param_grid, cv=inner_cv, scoring='roc_auc', n_jobs=-1)
+        final_grid.fit(X_train, y_train)
+        tuned_model = final_grid.best_estimator_
 
-        print(f"\nTraining Set Cross-Validation Metrics:")
-        print(f"AUROC: {train_roc_auc_cv:.4f}, AUPRC: {train_pr_auc_cv:.4f}, Accuracy: {train_accuracy_cv:.4f}")
-
-        # Train on the full training set
-        tuned_model.fit(X_train, y_train)
-
-        # Test set predictions and metrics
+        # Test evaluation
         y_pred_proba_test = tuned_model.predict_proba(X_test)[:, 1]
         y_pred_test = (y_pred_proba_test > 0.5).astype(int)
-        test_roc_auc = roc_auc_score(y_test, y_pred_proba_test)
-        test_pr_auc = average_precision_score(y_test, y_pred_proba_test)
-        test_accuracy = accuracy_score(y_test, y_pred_test)
-        test_f1 = f1_score(y_test, y_pred_test)
-        test_precision = precision_score(y_test, y_pred_test)
-        test_recall = recall_score(y_test, y_pred_test)
 
-        print(f"\nTest Set Metrics:")
-        print(f"AUROC: {test_roc_auc:.4f}, AUPRC: {test_pr_auc:.4f}, Accuracy: {test_accuracy:.4f}")
+        test_metrics = {
+            'Set': 'Test',
+            'AUROC': roc_auc_score(y_test, y_pred_proba_test),
+            'AUPRC': average_precision_score(y_test, y_pred_proba_test),
+            'Accuracy': accuracy_score(y_test, y_pred_test),
+            'F1-Score': f1_score(y_test, y_pred_test),
+            'Precision': precision_score(y_test, y_pred_test),
+            'Recall': recall_score(y_test, y_pred_test),
+            'MCC': matthews_corrcoef(y_test, y_pred_test),
+            'LogLoss': log_loss(y_test, y_pred_proba_test),
+            'Confusion Matrix': confusion_matrix(y_test, y_pred_test).tolist()
+        }
 
-        # Save the model
-        model_filename = os.path.join(output_dir, "final_model.joblib")
-        dump(tuned_model, model_filename)
-        print(f"Model saved as {model_filename}")
+        metrics_df = pd.DataFrame([train_metrics, test_metrics])
 
-        # Plot Precision-Recall and ROC Curves
+        # Create user folder
+        user_id = user_info['user_id']
+        user_folder = os.path.join(output_dir, 'files', str(user_id))
+        os.makedirs(user_folder, exist_ok=True)
+
+        # Save metrics CSV
+        metrics_csv_path = os.path.join(user_folder, 'final_model_metrics_summary.csv')
+        metrics_df.drop(columns=['Confusion Matrix']).to_csv(metrics_csv_path, index=False)
+
+        # Save model
+        model_path = os.path.join(user_folder, 'final_model.joblib')
+        dump(tuned_model, model_path)
+
+        # Plot PR and ROC curves
         fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-        precision, recall, _ = precision_recall_curve(y_test, y_pred_proba_test)
-        axes[0].plot(recall, precision, label=f'PR Curve (AUPRC = {test_pr_auc:.2f})')
-        axes[0].set_title('Precision-Recall Curve')
+        # PR
+        precision_train, recall_train, _ = precision_recall_curve(y_train, y_pred_proba_train)
+        precision_test, recall_test, _ = precision_recall_curve(y_test, y_pred_proba_test)
+        axes[0].plot(recall_train, precision_train, label=f'Train (AUPRC = {train_metrics["AUPRC"]:.2f})')
+        axes[0].plot(recall_test, precision_test, label=f'Test (AUPRC = {test_metrics["AUPRC"]:.2f})', linestyle='--')
+        axes[0].hlines(y.mean(), 0, 1, linestyles='--', color='black', label=f'Baseline={y.mean():.2f}')
+        axes[0].set_title('Precision–Recall Curve')
         axes[0].set_xlabel('Recall')
         axes[0].set_ylabel('Precision')
         axes[0].legend(loc='lower left')
-        fpr, tpr, _ = roc_curve(y_test, y_pred_proba_test)
-        axes[1].plot(fpr, tpr, label=f'ROC Curve (AUROC = {test_roc_auc:.2f})')
-        axes[1].plot([0, 1], [0, 1], 'k--', label='Random Chance')
+
+        # ROC
+        fpr_train, tpr_train, _ = roc_curve(y_train, y_pred_proba_train)
+        fpr_test, tpr_test, _ = roc_curve(y_test, y_pred_proba_test)
+        axes[1].plot(fpr_train, tpr_train, label=f'Train (AUROC = {train_metrics["AUROC"]:.2f})')
+        axes[1].plot(fpr_test, tpr_test, label=f'Test (AUROC = {test_metrics["AUROC"]:.2f})', linestyle='--')
+        axes[1].plot([0, 1], [0, 1], 'k--')
         axes[1].set_title('ROC Curve')
         axes[1].set_xlabel('False Positive Rate')
         axes[1].set_ylabel('True Positive Rate')
         axes[1].legend(loc='lower right')
-        fig.suptitle('Performance of the Final Model: Train vs Test', fontsize=16, y=1)
+
+        fig.suptitle('Performance of the Final Model (Train vs Test)', fontsize=15, y=1.02)
         plt.tight_layout(rect=[0, 0, 1, 0.95])
 
-        # Save the plots
-        pr_roc_png = os.path.join(output_dir, 'final_model_pr_roc_curves.png')
+        pr_roc_png = os.path.join(user_folder, 'final_model_performance.png')
         plt.savefig(pr_roc_png, dpi=300, bbox_inches='tight')
         plt.close()
 
-        # Confusion Matrix
-        cm = confusion_matrix(y_test, y_pred_test)
-        disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=['Negative', 'Positive'])
-        cm_png = os.path.join(output_dir, 'final_model_confusion_matrix.png')
-        disp.plot(cmap='Blues', values_format='d')
-        plt.title("Confusion Matrix")
-        plt.suptitle("Performance of the Final Model: Confusion Matrix", fontsize=16, y=1.02)  # Add this line
+        # Plot confusion matrices
+        cm_train = train_metrics['Confusion Matrix']
+        cm_test = test_metrics['Confusion Matrix']
+        fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+        ConfusionMatrixDisplay(np.array(cm_train), display_labels=['Negative', 'Positive']).plot(cmap='Blues', ax=axes[0])
+        axes[0].set_title("Train Confusion Matrix")
+        ConfusionMatrixDisplay(np.array(cm_test), display_labels=['Negative', 'Positive']).plot(cmap='Oranges', ax=axes[1])
+        axes[1].set_title("Test Confusion Matrix")
+        fig.suptitle('Confusion Matrices of Final Model: Train vs Test', fontsize=16)
+        plt.tight_layout(rect=[0, 0, 1, 0.95])
+        cm_png = os.path.join(user_folder, 'final_model_confusion_matrix.png')
         plt.savefig(cm_png, dpi=300, bbox_inches='tight')
         plt.close()
 
-        pr_roc_png_path = f"{BASE_URL}/files/{user_info['user_id']}/final_model_pr_roc_curves.png"
-        cm_png_path = f"{BASE_URL}/files/{user_info['user_id']}/final_model_confusion_matrix.png"
-        model_path = f"{BASE_URL}/files/{user_info['user_id']}/final_model.joblib"
-
-
-
+        # Return URLs
+        base_url = f"{BASE_URL}/files/{user_id}"
         return {
             "message": "Final model evaluation completed successfully.",
-            "train_metrics": {
-                "AUROC": train_roc_auc_cv,
-                "AUPRC": train_pr_auc_cv,
-                "Accuracy": train_accuracy_cv,
-                "F1-Score": train_f1_cv,
-                "Precision": train_precision_cv,
-                "Recall": train_recall_cv
-            },
-            "test_metrics": {
-                "AUROC": test_roc_auc,
-                "AUPRC": test_pr_auc,
-                "Accuracy": test_accuracy,
-                "F1-Score": test_f1,
-                "Precision": test_precision,
-                "Recall": test_recall
-            },
-            "model_path": model_path,
-            "pr_roc_plot": pr_roc_png_path,
-            "confusion_matrix_plot": cm_png_path
+            "train_metrics": train_metrics,
+            "test_metrics": test_metrics,
+            "model_path": f"{base_url}/final_model.joblib",
+            "metrics_file": f"{base_url}/final_model_metrics_summary.csv",
+            "pr_roc_plot": f"{base_url}/final_model_performance.png",
+            "confusion_matrix_plot": f"{base_url}/final_model_confusion_matrix.png"
         }
 
     except Exception as e:
