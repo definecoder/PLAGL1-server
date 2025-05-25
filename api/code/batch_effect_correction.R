@@ -1,25 +1,45 @@
+
 batch_effect_correction <- function(input_file, output_dir, user_id) {
   library(jsonlite)
   library(sva) # For batch effect correction
   
   tryCatch(
     {
-      # Read and preprocess data
-      merged_df_data <- read.csv(input_file, header = TRUE, row.names = 1)
+      # Read and preprocess data - preserve exact feature names
+      merged_df_data <- read.csv(input_file, header = TRUE, row.names = 1, check.names = FALSE)
       merged_df_data <- na.omit(merged_df_data)
+      
+      # Ensure unique column names
+      colnames(merged_df_data) <- make.unique(colnames(merged_df_data))
+      
+      # Extract condition and expression matrix
       condition_info <- merged_df_data$condition
       data_t <- t(merged_df_data[, !(colnames(merged_df_data) %in% c("condition", "batch"))])
-      sample_names <- colnames(data_t) # Save sample names for labeling
+      
+      # Save original feature names
+      feature_names <- rownames(data_t)
+      sample_names <- colnames(data_t)
       
       # Batch effect correction with ComBat
       batch_info <- merged_df_data$batch
       data_combat <- ComBat(dat = as.matrix(data_t), batch = batch_info, par.prior = TRUE, prior.plots = FALSE)
       
+      # Restore original feature names
+      rownames(data_combat) <- feature_names
+      
       # Save corrected data
       output_file <- file.path(output_dir, paste0("batch_", basename(input_file)))
       data_corrected <- t(data_combat)
       data_corrected_with_condition <- cbind(condition = condition_info, data_corrected)
-      write.csv(data_corrected_with_condition, output_file, row.names = TRUE)
+      
+      # Write CSV with proper quoting to preserve commas/spaces in feature names
+      write.csv(
+        data_corrected_with_condition,
+        output_file,
+        row.names = TRUE,
+        quote = TRUE,
+        na = "",
+        fileEncoding = "UTF-8")
       
       # Create boxplots in PDF and PNG formats only
       plot_formats <- c("pdf", "png")
