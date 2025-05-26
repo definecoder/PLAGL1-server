@@ -36,7 +36,7 @@ create_volcano_plot <- function(data, gene_ids, log_fold_change_col = "log2FoldC
     ) +
 
     # Customize color palette for regulation categories
-    scale_color_manual(values = c("Upregulated" = "red", "Downregulated" = "blue", "Not Significant" = "gray")) +
+    scale_color_manual(values = c("Upregulated" = "#d84467", "Downregulated" = "#4682b4", "Not Significant" = "gray")) +
 
     # Minimal theme
     theme_minimal() +

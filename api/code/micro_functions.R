@@ -300,15 +300,15 @@ plot_volcano <- function(topTable1, title = "Volcano Plot") {
     # Create volcano plot
     volcano_plot <- ggplot(combined_data_adj, aes(x = logFC, y = -log10(adj.P.Val))) +
         geom_point(aes(color = Regulation), size = 2, alpha = 0.7) +
-        geom_vline(xintercept = c(-1, 1), linetype = "dashed", color = "red") +
-        geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "red") +
+        geom_vline(xintercept = c(-1, 1), linetype = "dashed", color = "black") +
+        geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "black") +
         labs(
             title = title,
             x = "Log2 Fold Change",
             y = "-log10(adj.P-Value)",
             color = "Regulation"
         ) +
-        scale_color_manual(values = c("Upregulated" = "red", "Downregulated" = "blue", "Not Significant" = "grey")) +
+        scale_color_manual(values = c("Upregulated" = "#d84467", "Downregulated" = "#4682b4", "Not Significant" = "grey")) +
         theme_minimal()
 
     ggsave("figures/volcano_plot.png", plot = volcano_plot)
@@ -330,15 +330,15 @@ plot_volcano_with_highlight <- function(topTable1, highlight_data, gene_ids, tit
     # Create volcano plot
     volcano_plot <- ggplot(combined_data_adj, aes(x = logFC, y = -log10(adj.P.Val))) +
         geom_point(aes(color = Regulation), size = 2, alpha = 0.7) +
-        geom_vline(xintercept = c(-1, 1), linetype = "dashed", color = "red") +
-        geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "red") +
+        geom_vline(xintercept = c(-1, 1), linetype = "dashed", color = "black") +
+        geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "black") +
         labs(
             title = title,
             x = "Log2 Fold Change",
             y = "-log10(adj.P-Value)",
             color = "Regulation"
         ) +
-        scale_color_manual(values = c("Upregulated" = "red", "Downregulated" = "blue", "Not Significant" = "grey")) +
+        scale_color_manual(values = c("Upregulated" = "#d84467", "Downregulated" = "#4682b4", "Not Significant" = "grey")) +
         theme_minimal()
 
     # Highlight specific genes by circling them
