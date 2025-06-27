@@ -342,6 +342,7 @@ def feature_selection_and_model(input_file, output_dir, feature_ratio, user_info
             "output_files": {
                 "selected_features_csv": selected_features_csv
             },
+            "selected_features": selected_features.tolist(),
             "model_metrics": {
                 "cross_validation_auc": cv_scores.mean()
             }
@@ -608,9 +609,11 @@ def benchmark_models(input_file,output_dir, user_info):
         # plt.show()
 
         metrics_csv = f"{BASE_URL}/files/{user_info['user_id']}/model_benchmarking_results.csv"
+        png_path = f"{BASE_URL}/files/{user_info['user_id']}/model_benchmarking_curves.png"
         return {
             "metrics": metrics_df.to_dict(orient="records"),
-            "metrics_path": metrics_csv
+            "metrics_path": metrics_csv,
+            "plot_path": png_path
         }
 
     except Exception as e:
@@ -1197,6 +1200,8 @@ def visualize_dimensionality_reduction_final(input_file, output_dir, user_info):
 
         X = df.drop(columns=['condition'])  # Exclude the target variable
         y = df['condition']  # Target variable (condition)
+        
+        feature_names = X.columns.tolist() 
 
         # Ensure output directory exists
         os.makedirs(output_dir, exist_ok=True)
@@ -1317,7 +1322,8 @@ def visualize_dimensionality_reduction_final(input_file, output_dir, user_info):
 
         return {
             "message": "Dimensionality reduction visualizations created successfully.",
-            "Combined": {"png": combined_png, "pdf": combined_pdf}
+            "Combined": {"png": combined_png, "pdf": combined_pdf},
+            "feature_names": feature_names
         }
 
     except Exception as e:

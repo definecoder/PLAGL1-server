@@ -10,7 +10,7 @@ print(id)
 # Ensure the number of samples match
 
 
-setwd(here("api", "code", id))
+# setwd(here("code", id))
 
 
 # User will select specific gene names to label and highlight with borders

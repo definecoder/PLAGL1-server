@@ -1,3 +1,4 @@
+from re import S
 from fastapi import APIRouter, Depends, HTTPException, status
 from models.schema import UserCreate, UserLogin
 from sqlalchemy.orm import Session
@@ -56,6 +57,7 @@ async def login_user(body: UserLogin, db: Session = Depends(get_db)):
             detail="Invalid credentials"
         )
 
+    print("shawon")
 
     # return jwt_token
     token = create_access_token(data={ "user_id" : user.id, "name": user.name, "email" :user.email})

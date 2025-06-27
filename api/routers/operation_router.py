@@ -147,7 +147,7 @@ async def batch_effect_correction(user_info: dict = Depends(verify_token)):
     try:
         # Define the file paths
         user_id = str(user_info['user_id'])
-        input_file = os.path.join("code", user_id, "files", "merged_df_data_normalized_t.csv")
+        input_file = os.path.join(R_CODE_DIRECTORY, user_id, "files", "merged_df_data_normalized_t.csv")
         output_dir = os.path.join("code", user_id, "files")
         r_script_path = os.path.join("code", "batch_effect_correction.R")
 
@@ -416,7 +416,8 @@ async def benchmark_models_api(user_info: dict = Depends(verify_token)):
         return {
             "message": "Model benchmarking completed successfully.",
             "metrics": result["metrics"],
-            "metrics_file": result["metrics_path"]
+            "metrics_file": result["metrics_path"],
+            "plot_file": result["plot_path"]
         }
 
     except Exception as e:
@@ -552,7 +553,8 @@ async def rank_features_api(
         return {
             "message": result["message"],
             "ranking_file": result["ranking_file"],
-            "metrics": result["metrics"]
+            "metrics": result["metrics"],
+            "plot_png": result["plot_png"]
         }
 
     except Exception as e:
@@ -614,7 +616,7 @@ async def visualize_dimensions_api(
         # Define file paths
         user_id = str(user_info['user_id'])
         input_file = os.path.join("code", user_id, "files", "final_selected_features_auprc.csv")
-        output_dir = os.path.join("code", user_id, "files")
+        output_dir = os.path.join("code", user_id, "files")                
 
         # Ensure the input file exists
         if not os.path.exists(input_file):
@@ -632,7 +634,8 @@ async def visualize_dimensions_api(
 
         return {
             "message": result["message"],
-            "combined_visualization": result["Combined"]
+            "combined_visualization": result["Combined"],
+            "feature_names": result["feature_names"]
         }
 
     except Exception as e:
@@ -803,11 +806,11 @@ async def remove_outliers(data: OutlierSchema, user_info: dict = Depends(verify_
 
     try:
 
-        robjects.r['setwd'](R_CODE_DIRECTORY)
+        # robjects.r['setwd'](R_CODE_DIRECTORY)
 
         print(f"current python wd: {os.getcwd()}")
 
-        file_path = f"{user_info['user_id']}/rds/genes.rds"
+        file_path = f"rds/genes.rds"
         
 
         print(robjects.r('getwd()'))
@@ -1195,6 +1198,9 @@ async def run_mapping_plotting(request: MappingPlottingRequest, user_info: dict 
         r_script_path = "string/String_Workflow_Update_v3_Feb19.R"
         output_dir = os.path.join("code", user_id, "files")
         os.makedirs(output_dir, exist_ok=True)
+        
+        print(os.curdir)
+        print(r_script_path)
 
         # Convert gene symbols list to JSON string
         gene_symbols_json = json.dumps(request.gene_symbols)

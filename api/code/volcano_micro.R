@@ -4,13 +4,13 @@ library(here)
 # test()
 
 # print("ami jekhane")
-setwd(here("api", "code", id, "micro"))
+# setwd(here(id, "micro"))
 source("../../micro_functions.R")
 load_and_install_libraries()
 
 
-count_data_subset_clean_normalized <- readRDS("rds/count_data_subset_clean_normalized.rds")
-sample_info_clean <- readRDS("rds/sample_info_clean.rds")
+count_data_subset_clean_normalized <- readRDS("rds/count_data_normalized.rds")
+sample_info_clean <- readRDS("rds/sample_info.rds")
 
 
 

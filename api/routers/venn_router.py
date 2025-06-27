@@ -23,6 +23,19 @@ R_CODE_DIRECTORY = os.path.join(os.path.dirname(__file__), '../code')
 # outcome 1: venn diagram png 
 # outcome 2: venn diagram csv file
 
+@router.post('/upload_for_venn')
+async def upload_for_venn(ann_df: UploadFile = File(...), user_info: dict = Depends(verify_token)):
+    try:
+        FILE_DIR = os.path.join(R_CODE_DIRECTORY, f"{user_info['user_id']}", "annotation", "files")
+        file1_path = os.path.join( FILE_DIR, ann_df.filename)
+        with open(file1_path, "wb") as f:
+            f.write(await ann_df.read())
+
+        return {"message" : "Annodation file uploaded successfully", "file_path": file1_path}
+
+    except Exception as e:
+        return {"message": "Error in uploading file", "error": str(e)}
+
 @router.post('/venn_diagram')   
 async def venn_diagram(data: VennSchema , user_info: dict = Depends(verify_token)):
     try:

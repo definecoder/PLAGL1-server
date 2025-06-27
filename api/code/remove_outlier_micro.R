@@ -4,7 +4,7 @@ library(here)
 # test()
 
 # print("ami jekhane")
-setwd(here("api", "code", id, "micro"))
+setwd(here(id, "micro"))
 source("../../micro_functions.R")
 load_and_install_libraries()
 
@@ -50,12 +50,12 @@ if (!is.null(outlier_removal)) {
 
 
     saveRDS(count_data_subset_clean, "rds/count_data_subset_clean.rds")
-    saveRDS(sample_info_clean, "rds/sample_info_clean.rds")
-    saveRDS(count_data_subset_clean_normalized, "rds/count_data_subset_clean_normalized.rds")
+    saveRDS(sample_info_clean, "rds/sample_info.rds")
+    saveRDS(count_data_subset_clean_normalized, "rds/count_data_normalized.rds")
 } else {
     saveRDS(count_data_subset, "rds/count_data_subset_clean.rds")
-    saveRDS(sample_info, "rds/sample_info_clean.rds")
-    saveRDS(count_data_normalized, "rds/count_data_subset_clean_normalized.rds")
+    saveRDS(sample_info, "rds/sample_info.rds")
+    saveRDS(count_data_normalized, "rds/count_data_normalized.rds")
     print("No outliers removed!")
 }
 
