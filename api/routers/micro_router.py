@@ -166,7 +166,7 @@ async def show_conditions(user_info: dict = Depends(verify_token)):
     try:
         robjects.r['setwd'](R_CODE_DIRECTORY + f"/{user_info['user_id']}/micro")
         readRDS = robjects.r['readRDS']
-        sample_info_clean = readRDS("rds/sample_info_clean.rds")
+        sample_info_clean = readRDS("rds/sample_info.rds")
         group = sample_info_clean.rx(True, 1)
         conditions = list(set(group))
         return {"options": conditions}
@@ -176,8 +176,8 @@ async def show_conditions(user_info: dict = Depends(verify_token)):
 
 
 
-@router.get('/volcano')
-async def volcano_plot(reference: str, user_info: dict = Depends(verify_token)):
+@router.get('/dge-analysis')
+async def volcano_plot(coeff: str, user_info: dict = Depends(verify_token)):
 
     try:
 
@@ -185,11 +185,11 @@ async def volcano_plot(reference: str, user_info: dict = Depends(verify_token)):
 
         robjects.r(
         f"""
-            Reference <- "{reference}"
+            Reference <- "{coeff}"
             saveRDS(Reference, "rds/Reference.rds")
         """)
 
-        print("etotuku no problem")
+        # print("etotuku no problem")
 
         run_r_script("volcano_micro.R", [str(user_info['user_id'])])
 
@@ -203,8 +203,8 @@ async def volcano_plot(reference: str, user_info: dict = Depends(verify_token)):
         return {"message": "Volcano plot generated successfully!",
                 "results": {
                     "volcano_img": f"{BASE_URL}/figures/micro/{user_info['user_id']}/volcano_plot.png",
-                    "upregulated_genes" : f"{BASE_URL}/files/micro/{user_info['user_id']}/Upregulated_genes_{treat[0]}_vs_{reference}.csv",
-                    "downregulated_genes" : f"{BASE_URL}/files/micro/{user_info['user_id']}/Downregulated_genes_{treat[0]}_vs_{reference}.csv",
+                    "upregulated_genes" : f"{BASE_URL}/files/micro/{user_info['user_id']}/Upregulated_genes_{treat[0]}_vs_{coeff}.csv",
+                    "downregulated_genes" : f"{BASE_URL}/files/micro/{user_info['user_id']}/Downregulated_genes_{treat[0]}_vs_{coeff}.csv",
                     "resLFC" : f"{BASE_URL}/files/micro/{user_info['user_id']}/LFC.csv"
                 }
                }

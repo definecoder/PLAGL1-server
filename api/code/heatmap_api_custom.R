@@ -4,7 +4,7 @@ args <- commandArgs(trailingOnly = TRUE)
 id <- args[1]
 library(here)
 
-setwd(here("api", "code", id, "heatmap"))
+setwd(here(id, "heatmap"))
 
 source("../../1_Extract_LFC.R")
 source("../../2_plot_heatmap.R")

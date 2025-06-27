@@ -56,9 +56,11 @@ async def init(user_info: dict = Depends(verify_token)):
 async def annotate_genes(files: List[UploadFile] = File(None), organism_name: str = Form(...), id_type: str = Form(...) , user_info: dict = Depends(verify_token)):
 
     try:
+        os.makedirs(os.path.join(R_CODE_DIRECTORY, str(user_info['user_id']), "annotation", "files"), exist_ok=True)
         FILE_DIR = os.path.join(R_CODE_DIRECTORY, f"{user_info['user_id']}", "annotation" ,"files")
         file_names = [file.filename for file in files] if files else []
         for file in files:
+            print("Saving in : " + FILE_DIR + "/" + file.filename)
             with open(os.path.join(FILE_DIR, file.filename), "wb") as f:
                 f.write(file.file.read())
 
@@ -125,10 +127,11 @@ async def annotated_volcano(data: AnnotatedVolcanoSchema, user_info: dict = Depe
         # remove files/ from the file paths
         output_file_paths = [file_path.split("files/")[1] for file_path in output_file_paths]
 
-        volcano_urls = {}
+        volcano_urls = []
 
         for file_path in output_file_paths:
-            volcano_urls[file_path] = f"{BASE_URL}/figures/annotation/{user_info['user_id']}/Volcano_{file_path}.png"
+            volcano_urls.append(f"{BASE_URL}/figures/annotation/{user_info['user_id']}/Volcano_{file_path}.png")
+            # volcano_urls[file_path] = f"{BASE_URL}/figures/annotation/{user_info['user_id']}/Volcano_{file_path}.png"
 
 
 # annotated_Downregulated_padj_7_LFC_Mice_FROM_16_Samples

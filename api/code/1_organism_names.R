@@ -2,7 +2,8 @@ args <- commandArgs(trailingOnly = TRUE)
 id <- args[1]
 library(here)
 
-setwd(here("api", "code", id, "annotation"))
+setwd(here(id, "annotation"))
+# setwd(here("annotation"))
 source("../../1_Biomart_init_m.R")
 
 available_organisms <- read.csv("../../globals/Organisms_name.csv")

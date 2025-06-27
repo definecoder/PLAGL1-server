@@ -4,7 +4,7 @@ args <- commandArgs(trailingOnly = TRUE)
 id <- args[1]
 library(here)
 # test()
-setwd(here("api", "code", id, "micro"))
+setwd(here(id, "micro"))
 
 
 source("../../micro_functions.R")

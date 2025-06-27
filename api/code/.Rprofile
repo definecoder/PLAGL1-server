@@ -1,0 +1,2 @@
+# ~/.Rprofile
+options(ask = FALSE)

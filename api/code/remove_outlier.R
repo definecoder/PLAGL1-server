@@ -9,7 +9,7 @@ print(id)
 
 # print(here())
 
-setwd(here("api", "code", id))
+# setwd(here("code", id))
 
 
 user_data <- readRDS("rds/count_data.rds")

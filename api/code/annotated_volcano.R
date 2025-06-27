@@ -6,7 +6,7 @@ args <- commandArgs(trailingOnly = TRUE)
 id <- args[1]
 library(here)
 
-setwd(here("api", "code", id, "annotation"))
+setwd(here(id, "annotation"))
 # source("../../1_Biomart_init_m.R")
 # source("../../2_Select_Organism_m.R")
 # source("../../3_annotate_save_m.R")

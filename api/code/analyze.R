@@ -8,7 +8,7 @@ print(id)
 # Ensure the number of samples match
 
 
-setwd(here("api", "code", id))
+# setwd(here("api", "code", id))
 
 count_data <- readRDS("rds/count_data.rds")
 sample_info <- readRDS("rds/sample_info.rds")

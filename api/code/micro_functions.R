@@ -6,28 +6,27 @@ load_and_install_libraries <- function() {
     # Define required packages
     required_packages <- c("readr", "limma", "umap", "ggplot2", "Rtsne", "ape", "mice", "tidyverse")
 
-    # Install BiocManager if not already installed
+    # Ensure BiocManager is available
     if (!requireNamespace("BiocManager", quietly = TRUE)) {
         install.packages("BiocManager")
     }
 
-    # Function to check if a package is installed and install it
+    # Helper function to install packages
     install_if_missing <- function(pkg) {
         if (!requireNamespace(pkg, quietly = TRUE)) {
-            tryCatch(
-                {
-                    install.packages(pkg, dependencies = TRUE)
-                },
-                error = function(e) {
-                    BiocManager::install(pkg, ask = FALSE)
-                }
-            )
+            message(sprintf("Installing %s ...", pkg))
+            tryCatch({
+                install.packages(pkg, dependencies = TRUE)
+            }, error = function(e) {
+                message(sprintf("Attempting BiocManager install for %s ...", pkg))
+                try(BiocManager::install(pkg, ask = FALSE), silent = TRUE)
+            })
         }
-        library(pkg, character.only = TRUE)
+        suppressPackageStartupMessages(library(pkg, character.only = TRUE))
     }
 
-    # Install and load all required packages
-    invisible(lapply(required_packages, install_if_missing))
+    # Iterate over all packages
+    lapply(required_packages, install_if_missing)
 }
 
 impute_missing_values_mice <- function(data) {
