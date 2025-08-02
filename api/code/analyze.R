@@ -682,7 +682,7 @@ tip_colors <- as.numeric(group_colors)
 
 # Plot the dendrogram with colored labels
 
-pdf("figures/htree_denorm.pdf")
+pdf("figures/htree_norm.pdf")
 plot.phylo(phylo_tree,
     type = "phylogram",
     tip.color = tip_colors,
@@ -701,7 +701,7 @@ legend("topleft",
 
 dev.off()
 
-png("figures/htree_denorm.png")
+png("figures/htree_norm.png")
 plot.phylo(phylo_tree,
     type = "phylogram",
     tip.color = tip_colors,

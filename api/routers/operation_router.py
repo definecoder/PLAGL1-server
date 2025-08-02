@@ -1189,23 +1189,24 @@ async def run_mapping_plotting(request: MappingPlottingRequest, user_info: dict 
     {
         "species_name": "Homo sapiens",
         "gene_symbols": ["ZNF212", "ZNF451", "PLAGL1", "NFAT5", "ICAM5", "RRAD"],
-        "clustering_method": "fastgreedy"
+        "clustering_method1": "fastgreedy",
+        "clustering_method2": "walktrap"
     }
     """
     try:
         # Define file paths
         user_id = str(user_info['user_id'])
         r_script_path = "string/String_Workflow_Update_v3_Feb19.R"
-        output_dir = os.path.join("code", user_id, "files")
+        output_dir = os.path.join("code", user_id, "files", "string")
         os.makedirs(output_dir, exist_ok=True)
-        
-        print(os.curdir)
-        print(r_script_path)
 
-        # Convert gene symbols list to JSON string
+        print(f"Running from: {os.getcwd()}")
+        print(f"R Script: {r_script_path}")
+
+        # Convert gene symbols to JSON string
         gene_symbols_json = json.dumps(request.gene_symbols)
 
-        # Run the R script with species_name, gene_symbols_json, clustering_method, and output_dir as arguments
+        # Build R script command
         command = [
             "Rscript",
             r_script_path,
@@ -1215,21 +1216,56 @@ async def run_mapping_plotting(request: MappingPlottingRequest, user_info: dict 
             request.clustering_method2,
             output_dir
         ]
+
+        # Run R script
         result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
-        # Capture stdout and stderr
+        # Capture output
         stdout_output = result.stdout.strip()
         stderr_output = result.stderr.strip()
 
-        # Check for errors
+        # Zip result folder (exclude .zip files to prevent bloat)
+        zip_file_name = "string_output.zip"
+        zip_file_path = os.path.join("code", user_id, "files", zip_file_name)
+
+        # Zip the folder
+        zip_folder(output_dir, zip_file_path)
+
+        # Return downloadable HTTP path
+        download_url = f"{BASE_URL}/files/{user_info['user_id']}/{zip_file_name}"
+
+
+        # Return error if R failed
         if result.returncode != 0:
-            return {"message": "Error running R script", "error": stderr_output}
+            return {
+                "message": "Error running R script",
+                "error": stderr_output,
+                "stdout": stdout_output
+            }
 
         return {
             "message": "Workflow completed successfully!",
-            # "output_directory": output_dir,
-            # "stdout": stdout_output
+            "download_url": download_url,
+            "stdout": stdout_output
         }
 
     except Exception as e:
         return {"message": "Unexpected error", "error": str(e)}
+
+
+def zip_folder(folder_path, output_path):
+    import zipfile
+
+    with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for root, dirs, files in os.walk(folder_path):
+            for file in files:
+                abs_path = os.path.join(root, file)
+                rel_path = os.path.relpath(abs_path, start=folder_path)
+
+                # Skip the output zip file and any other .zip to avoid nesting
+                if abs_path == output_path or file.endswith('.zip'):
+                    continue
+
+                zipf.write(abs_path, arcname=rel_path)
+
+    print(f"Zipped folder '{folder_path}' to '{output_path}'")
