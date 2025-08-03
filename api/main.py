@@ -21,14 +21,11 @@ from routers.heatmap_router import router as heatmap_router
 
 app = FastAPI()
 
-origins = [
-    "http://localhost:3000",  
-    "https://yourfrontenddomain.com", 
-]
+origins = ["https://plagl1.vercel.app/", "http://localhost:3000"]  # Allow all origins
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,  # Allows all origins from the list
+    allow_origins=origins,  # Allows all origins
     allow_credentials=True,
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
