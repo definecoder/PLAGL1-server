@@ -34,8 +34,13 @@ get_gene_list_from_csv <- function(file_path, gene_list_name) {
   }
 
   # Extract the specified column, remove duplicates and NA values
-  gene_list_i <- na.omit(unique(data_i[[col_name]]))
-
+  # Remove true NA, empty/whitespace strings, and literal "NA" strings.
+  gene_values <- as.character(data_i[[col_name]])
+  gene_values <- trimws(gene_values)
+  gene_values <- gene_values[!is.na(gene_values)]
+  gene_values <- gene_values[gene_values != ""]
+  gene_values <- gene_values[toupper(gene_values) != "NA"]
+  
   return(list(gene_list_name = gene_list_name, gene_list = gene_list_i))
 }
 
