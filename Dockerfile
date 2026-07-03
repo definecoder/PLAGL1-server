@@ -36,6 +36,7 @@ RUN apt-get update && apt-get install -y \
     libfribidi-dev \
     libwebp-dev \
     libfontconfig1-dev \
+    libuv1-dev \
     pkg-config \
     && locale-gen en_US.UTF-8 \
     && rm -rf /var/lib/apt/lists/*
@@ -68,13 +69,17 @@ RUN apt-get update && \
 RUN R -e "install.packages('BiocManager', repos='https://cran.r-project.org')"
 
 # Set Bioconductor version to 3.21 - this will manage compatible package versions
-RUN R -e "BiocManager::install(version = '3.21', ask = FALSE, update = TRUE)"
+RUN R -e "BiocManager::install(version = '3.23', ask = FALSE, update = TRUE)"
 
 # Install Bioconductor packages - BiocManager ensures version compatibility within Bioc 3.21
 RUN R -e "BiocManager::install(c('WGCNA', 'DESeq2', 'limma', 'biomaRt', 'sva', 'STRINGdb', 'apeglm', 'impute'), ask = FALSE, update = FALSE)"
 
 # Install CRAN packages - let BiocManager handle compatibility with Bioconductor
 RUN R -e "BiocManager::install(c('tidyverse', 'Rtsne', 'umap', 'ggplot2', 'readr', 'ape', 'mice', 'dplyr', 'gplots', 'ggVennDiagram', 'pheatmap', 'RColorBrewer', 'stringr', 'here', 'lme4'), ask = FALSE)"
+
+# WGCNA is used at runtime by analyze.R and needs an explicit install check.
+RUN R -e "install.packages('WGCNA', repos='https://cran.r-project.org', dependencies = TRUE)"
+RUN R -e "stopifnot(requireNamespace('WGCNA', quietly = TRUE))"
 
 
 

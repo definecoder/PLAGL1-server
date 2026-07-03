@@ -1,7 +1,20 @@
 args <- commandArgs(trailingOnly = TRUE)
 id <- args[1]
-library(here)
 
+if (is.na(id) || id == "") {
+    stop("Missing user id argument")
+}
+
+script_path_arg <- grep("^--file=", commandArgs(), value = TRUE)
+script_path <- normalizePath(sub("^--file=", "", script_path_arg[1]), winslash = "/", mustWork = TRUE)
+script_dir <- dirname(script_path)
+user_dir <- file.path(script_dir, id)
+
+if (!dir.exists(user_dir)) {
+    stop(sprintf("User analysis directory not found: %s", user_dir))
+}
+
+setwd(user_dir)
 
 print(id)
 
@@ -10,8 +23,19 @@ print(id)
 
 # setwd(here("api", "code", id))
 
-count_data <- readRDS("rds/count_data.rds")
-sample_info <- readRDS("rds/sample_info.rds")
+count_rds_path <- file.path("rds", "count_data.rds")
+sample_rds_path <- file.path("rds", "sample_info.rds")
+
+if (!file.exists(count_rds_path)) {
+    stop(sprintf("Required file not found: %s", file.path(user_dir, count_rds_path)))
+}
+
+if (!file.exists(sample_rds_path)) {
+    stop(sprintf("Required file not found: %s", file.path(user_dir, sample_rds_path)))
+}
+
+count_data <- readRDS(count_rds_path)
+sample_info <- readRDS(sample_rds_path)
 
 if (ncol(count_data) != nrow(sample_info)) {
     stop("Number of samples in count_data and sample_info do not match!")
